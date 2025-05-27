@@ -1,28 +1,19 @@
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QGroupBox, QSlider, QCheckBox, QLineEdit, \
     QLabel, QPushButton, QSplitter
 from PySide6.QtCore import Qt
-from PySide6.QtOpenGLWidgets import QOpenGLWidget
+from modules.canvas import OpenGLCanvas
 from loguru import logger
-import sys
 
 class MainUI(QWidget):
     def __init__(self, config_manager, log_level="ERROR"):
         super().__init__()
+        numeric_log_level = logger.level(log_level).no if isinstance(log_level, str) else log_level
+        self.logger = logger.bind(module_level=numeric_log_level)
         self.config_manager = config_manager
-        self.set_logger(log_level)
         self.init_ui()
 
-    @staticmethod
-    def set_logger(log_level):
-        logger.remove()
-        log_format = ("<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
-                      "<level>{level: <8}</level> | "
-                      "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> | "
-                      "<level>{message}</level>")
-        logger.add(sys.stderr, format=log_format)
-
     def init_ui(self):
-        logger.debug("Инициализация интерфейса")
+        self.logger.debug("Инициализация интерфейса")
 
         self.setWindowTitle(self.config_manager.get_str("Window", "title"))
         self.resize(
@@ -35,7 +26,7 @@ class MainUI(QWidget):
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
         # Левая часть: OpenGL предпросмотр
-        self.canvas = QOpenGLWidget()
+        self.canvas = OpenGLCanvas(self.config_manager, log_level="DEBUG")
         splitter.addWidget(self.canvas)
 
         # Правая часть: Панель управления
@@ -89,8 +80,8 @@ class MainUI(QWidget):
             self.config_manager.get_int("GenerationParams", "points_size_min"),
             self.config_manager.get_int("GenerationParams", "points_size_max")
         )
-        self.points_size_slider.setValue(self.config_manager.get_int("GenerationParams", "points_amount_default"))
-        self.points_size_value = QLabel(str(self.config_manager.get_int("GenerationParams", "points_amount_default")))
+        self.points_size_slider.setValue(self.config_manager.get_int("GenerationParams", "points_size_default"))
+        self.points_size_value = QLabel(str(self.config_manager.get_int("GenerationParams", "points_size_default")))
         self.points_size_slider.valueChanged.connect(
             lambda: self.points_size_value.setText(str(self.points_size_slider.value())))
 
