@@ -8,7 +8,7 @@ from modules.animation_manager import AnimationManager
 from loguru import logger
 
 class MainApplication:
-    def __init__(self):
+    def __init__(self, log_level):
         logger.debug("Инициализация приложения")
         self.app = QApplication(sys.argv)
 
@@ -38,6 +38,15 @@ class MainApplication:
         self.ui.animation_speed_slider.valueChanged.connect(self.animation_manager.set_animation_speed)
         self.ui.transition_speed_slider.valueChanged.connect(self.animation_manager.set_transition_speed)
 
+    @staticmethod
+    def set_logger(log_level):
+        logger.remove()
+        log_format = ("<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
+                      "<level>{level: <8}</level> | "
+                      "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> | "
+                      "<level>{message}</level>")
+        logger.add(sys.stderr, format=log_format)
+
     def generate_frame(self):
         logger.debug("Запуск генерации кадра")
         self.animation_manager.init_frame()
@@ -49,5 +58,5 @@ class MainApplication:
         sys.exit(self.app.exec())
 
 if __name__ == '__main__':
-    app = MainApplication()
+    app = MainApplication("DEBUG")
     app.run()

@@ -17,7 +17,11 @@ class AnimationManager:
     @staticmethod
     def set_logger(log_level):
         logger.remove()
-        logger.add(sys.stderr, format="{time} | {level} | {name}:{line} | {message}", level=log_level)
+        log_format = ("<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
+                      "<level>{level: <8}</level> | "
+                      "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> | "
+                      "<level>{message}</level>")
+        logger.add(sys.stderr, format=log_format)
 
     def init_frame(self):
         logger.debug("Инициализация кадра")
@@ -28,7 +32,7 @@ class AnimationManager:
         }
 
     def get_frame(self):
-        logger.debug("Отправка кадра")
+        logger.debug("Чтение кадра")
         return self.frame
 
     def set_points_amount(self, value):
