@@ -9,6 +9,8 @@ class MainApplication:
     def __init__(self, log_level):
         """Инициализация приложения"""
         self.set_logger()
+        numeric_log_level = logger.level(log_level).no if isinstance(log_level, str) else log_level
+        self.logger = logger.bind(module_level=numeric_log_level)
         logger.debug("Инициализация приложения")
         self.app = QApplication(sys.argv)
 
@@ -36,28 +38,33 @@ class MainApplication:
 
     def set_signals(self):
         """Подключение сигналов"""
-        self.ui.width_input.textChanged.connect(self.animation_manager.set_width)
-        self.ui.height_input.textChanged.connect(self.animation_manager.set_height)
-        self.ui.points_amount_slider.valueChanged.connect(self.animation_manager.set_points_amount)
-        self.ui.points_check.toggled.connect(self.ui.canvas.set_points_check)
-        self.ui.points_size_slider.valueChanged.connect(self.ui.canvas.set_points_size)
-        self.ui.lines_check.toggled.connect(self.ui.canvas.set_lines_check)
-        self.ui.lines_width_slider.valueChanged.connect(self.ui.canvas.set_lines_width)
-        self.ui.fill_check.toggled.connect(self.ui.canvas.set_fill_check)
-        self.ui.fill_variation_slider.valueChanged.connect(self.ui.canvas.set_fill_variation)
-        self.ui.hue_slider.valueChanged.connect(self.ui.canvas.set_hue)
-        self.ui.saturation_slider.valueChanged.connect(self.ui.canvas.set_saturation)
-        self.ui.brightness_slider.valueChanged.connect(self.ui.canvas.set_brightness)
-        self.ui.bg_hue_slider.valueChanged.connect(self.ui.canvas.set_bg_hue)
-        self.ui.bg_saturation_slider.valueChanged.connect(self.ui.canvas.set_bg_saturation)
-        self.ui.bg_brightness_slider.valueChanged.connect(self.ui.canvas.set_bg_brightness)
-        self.ui.animation_speed_slider.valueChanged.connect(self.animation_manager.set_animation_speed)
-        self.ui.transition_speed_slider.valueChanged.connect(self.animation_manager.set_transition_speed)
-        self.ui.generate_frame_btn.clicked.connect(self.generate_frame)
+        self.logger.debug("Подключение сигналов")
+        try:
+            self.ui.width_input.textChanged.connect(self.animation_manager.set_width)
+            self.ui.height_input.textChanged.connect(self.animation_manager.set_height)
+            self.ui.points_amount_slider.valueChanged.connect(self.animation_manager.set_points_amount)
+            self.ui.points_check.toggled.connect(self.ui.canvas.set_points_check)
+            self.ui.points_size_slider.valueChanged.connect(self.ui.canvas.set_points_size)
+            self.ui.lines_check.toggled.connect(self.ui.canvas.set_lines_check)
+            self.ui.lines_width_slider.valueChanged.connect(self.ui.canvas.set_lines_width)
+            self.ui.fill_check.toggled.connect(self.ui.canvas.set_fill_check)
+            self.ui.fill_variation_slider.valueChanged.connect(self.ui.canvas.set_fill_variation)
+            self.ui.hue_slider.valueChanged.connect(self.ui.canvas.set_hue)
+            self.ui.saturation_slider.valueChanged.connect(self.ui.canvas.set_saturation)
+            self.ui.brightness_slider.valueChanged.connect(self.ui.canvas.set_brightness)
+            self.ui.bg_hue_slider.valueChanged.connect(self.ui.canvas.set_bg_hue)
+            self.ui.bg_saturation_slider.valueChanged.connect(self.ui.canvas.set_bg_saturation)
+            self.ui.bg_brightness_slider.valueChanged.connect(self.ui.canvas.set_bg_brightness)
+            self.ui.animation_speed_slider.valueChanged.connect(self.animation_manager.set_animation_speed)
+            self.ui.transition_speed_slider.valueChanged.connect(self.animation_manager.set_transition_speed)
+            self.ui.generate_frame_btn.clicked.connect(self.generate_frame)
+        except AttributeError as e:
+            logger.error(f"Ошибка при подключении сигналов: {e}")
+            raise
 
     def generate_frame(self):
         """Генерация кадра"""
-        logger.debug("Запуск генерации кадра")
+        self.logger.debug("Запуск генерации кадра")
         self.animation_manager.init_frame()
         frame = self.animation_manager.get_frame()
         self.ui.canvas.render_frame(frame)

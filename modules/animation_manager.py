@@ -7,8 +7,8 @@ class AnimationManager:
         numeric_log_level = logger.level(log_level).no if isinstance(log_level, str) else log_level
         self.logger = logger.bind(module_level=numeric_log_level)
         self.config = config_manager
-        self.width = self.config.get_int("ImageParams", "default_width")
-        self.height = self.config.get_int("ImageParams", "default_height")
+        self.width = self.config.get_int("ImageParams", "width_default")
+        self.height = self.config.get_int("ImageParams", "height_default")
         self.points_amount = self.config.get_int("GenerationParams", "points_amount_default")
         self.animation_speed = self.config.get_int("AnimationParams", "animation_speed_default")
         self.transition_speed = self.config.get_int("AnimationParams", "transition_speed_default")
@@ -33,13 +33,19 @@ class AnimationManager:
 
     def set_width(self, value):
         self.logger.debug(f"Установка ширины: {value}")
-        self.width = value
-        self.init_frame()
+        try:
+            self.width = int(value)
+            self.init_frame()
+        except ValueError:
+            self.logger.error(f"Некорректное значение ширины: {value}")
 
     def set_height(self, value):
         self.logger.debug(f"Установка высоты: {value}")
-        self.height = value
-        self.init_frame()
+        try:
+            self.height = int(value)
+            self.init_frame()
+        except ValueError:
+            self.logger.error(f"Некорректное значение высоты: {value}")
 
     def set_animation_speed(self, value):
         self.logger.debug(f"Установка скорости анимации: {value}")

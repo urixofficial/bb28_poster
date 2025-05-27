@@ -1,5 +1,6 @@
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QGroupBox, QSlider, QCheckBox, QLineEdit, \
     QLabel, QPushButton, QSplitter
+from PySide6.QtGui import QIntValidator
 from PySide6.QtCore import Qt
 from modules.canvas import OpenGLCanvas
 from loguru import logger
@@ -39,13 +40,25 @@ class MainUI(QWidget):
         image_params_layout = QGridLayout()
 
         width_label = QLabel("Ширина (px):")
-        self.width_input = QLineEdit(str(self.config_manager.get_int("ImageParams", "default_width")))
+        self.width_input = QLineEdit(str(self.config_manager.get_int("ImageParams", "width_default")))
+        self.width_input.setValidator(QIntValidator(
+            self.config_manager.get_int("ImageParams", "width_min"),
+            self.config_manager.get_int("ImageParams", "width_max")))
         height_label = QLabel("Высота (px):")
-        self.height_input = QLineEdit(str(self.config_manager.get_int("ImageParams", "default_height")))
+        self.height_input = QLineEdit(str(self.config_manager.get_int("ImageParams", "height_default")))
+        self.height_input.setValidator(QIntValidator(
+            self.config_manager.get_int("ImageParams", "height_min"),
+            self.config_manager.get_int("ImageParams", "height_max")))
         fps_label = QLabel("Кадров/с:")
-        self.fps_input = QLineEdit(str(self.config_manager.get_int("ImageParams", "default_fps")))
+        self.fps_input = QLineEdit(str(self.config_manager.get_int("ImageParams", "fps_default")))
+        self.fps_input.setValidator(QIntValidator(
+            self.config_manager.get_int("ImageParams", "fps_min"),
+            self.config_manager.get_int("ImageParams", "fps_max")))
         duration_label = QLabel("Длительность (с):")
-        self.duration_input = QLineEdit(str(self.config_manager.get_int("ImageParams", "default_duration")))
+        self.duration_input = QLineEdit(str(self.config_manager.get_int("ImageParams", "duration_default")))
+        self.duration_input.setValidator(QIntValidator(
+            self.config_manager.get_int("ImageParams", "duration_min"),
+            self.config_manager.get_int("ImageParams", "duration_max")))
 
         image_params_layout.addWidget(width_label, 0, 0)
         image_params_layout.addWidget(self.width_input, 0, 1)

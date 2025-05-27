@@ -10,11 +10,11 @@ class OpenGLCanvas(QOpenGLWidget):
 		numeric_log_level = logger.level(log_level).no if isinstance(log_level, str) else log_level
 		self.logger = logger.bind(module_level=numeric_log_level)
 		self.config = config_manager
-		self.points_check = self.config.get_str("GenerationParams", "points_check").lower() == "true"
+		self.points_check = self.config.get_bool("GenerationParams", "points_check")
 		self.points_size = self.config.get_int("GenerationParams", "points_size_default")
-		self.lines_check = self.config.get_str("GenerationParams", "lines_check").lower() == "true"
+		self.lines_check = self.config.get_bool("GenerationParams", "lines_check")
 		self.lines_width = self.config.get_int("GenerationParams", "lines_width_default")
-		self.fill_check = self.config.get_str("GenerationParams", "fill_check").lower() == "true"
+		self.fill_check = self.config.get_bool("GenerationParams", "fill_check")
 		self.fill_variation = self.config.get_int("GenerationParams", "fill_variation_default")
 		self.hsv_color = {
 			"h": self.config.get_int("ColorParams", "hue_default"),
@@ -79,12 +79,15 @@ class OpenGLCanvas(QOpenGLWidget):
 		return rgb  # Возвращает (r, g, b) в диапазоне [0, 1]
 
 	def render_frame(self, frame):
-		"""Отрисовка кадра"""
-		self.logger.debug(f"Отрисовка кадра")
+		self.logger.debug("Отрисовка кадра")
+		if not frame:
+			self.logger.warning("Получен пустой кадр")
+			return
 		self.frame = frame
-		# Вызываем отрисовку точек, если включен флаг points_check
-		if self.points_check and self.frame and "points" in self.frame:
+		if self.points_check and "points" in self.frame:
 			self.draw_points(self.frame["points"])
+		else:
+			self.logger.warning("Кадр не содержит точек или points_check выключен")
 		self.update()
 
 
@@ -173,6 +176,7 @@ class OpenGLCanvas(QOpenGLWidget):
 		self.logger.debug(f"Установка оттенка цвета фона: {value}")
 		self.hsv_bg_color["h"] = value
 		self.rgb_bg_color = self.hsv_to_rgb(self.hsv_bg_color["h"], self.hsv_bg_color["s"], self.hsv_bg_color["v"])
+		glClearColor(*self.rgb_bg_color, 1.0)
 		self.update()
 
 	def set_bg_saturation(self, value):
@@ -180,6 +184,7 @@ class OpenGLCanvas(QOpenGLWidget):
 		self.logger.debug(f"Установка насыщенности цвета фона: {value}")
 		self.hsv_bg_color["s"] = value
 		self.rgb_bg_color = self.hsv_to_rgb(self.hsv_bg_color["h"], self.hsv_bg_color["s"], self.hsv_bg_color["v"])
+		glClearColor(*self.rgb_bg_color, 1.0)
 		self.update()
 
 	def set_bg_brightness(self, value):
@@ -187,6 +192,7 @@ class OpenGLCanvas(QOpenGLWidget):
 		self.logger.debug(f"Установка яркости цвета фона: {value}")
 		self.hsv_bg_color["v"] = value
 		self.rgb_bg_color = self.hsv_to_rgb(self.hsv_bg_color["h"], self.hsv_bg_color["s"], self.hsv_bg_color["v"])
+		glClearColor(*self.rgb_bg_color, 1.0)
 		self.update()
 
 	def set_color(self, h, s, v):
@@ -201,4 +207,5 @@ class OpenGLCanvas(QOpenGLWidget):
 		self.logger.debug(f"Установка цвета фона: {h=} {s=} {v=}")
 		self.hsv_bg_color = {"h": h, "s": s, "v": v}
 		self.rgb_bg_color = self.hsv_to_rgb(h, s, v)
+		glClearColor(*self.rgb_bg_color, 1.0)
 		self.update()
