@@ -1,6 +1,6 @@
-import colorsys
 from PySide6.QtWidgets import QWidget
 from pyqtgraph import PlotWidget, mkPen, mkBrush
+from modules.utils import hsv_to_rgb
 from loguru import logger
 
 
@@ -9,6 +9,8 @@ class PyQtGraphCanvas(QWidget):
 		super().__init__()
 		numeric_log_level = logger.level(log_level).no if isinstance(log_level, str) else log_level
 		self.logger = logger.bind(module_level=numeric_log_level)
+		self.logger.debug("Инициализация холста")
+
 		self.config = config_manager
 
 		# Инициализация параметров из конфига
@@ -28,10 +30,10 @@ class PyQtGraphCanvas(QWidget):
 			"s": self.config.get_int("ColorParams", "bg_saturation_default"),
 			"v": self.config.get_int("ColorParams", "bg_brightness_default")
 		}
-		self.rgb_color = self.hsv_to_rgb(
+		self.rgb_color = hsv_to_rgb(
 			self.hsv_color["h"], self.hsv_color["s"], self.hsv_color["v"]
 		)
-		self.rgb_bg_color = self.hsv_to_rgb(
+		self.rgb_bg_color = hsv_to_rgb(
 			self.hsv_bg_color["h"], self.hsv_bg_color["s"], self.hsv_bg_color["v"]
 		)
 		self.frame_width = self.config.get_int("ImageParams", "width_default")
@@ -42,7 +44,6 @@ class PyQtGraphCanvas(QWidget):
 		self.plot_widget = PlotWidget(self)
 		self.plot_widget.setBackground(self.rgb_bg_color)
 		self.plot_widget.setSizePolicy(self.sizePolicy())
-		self.plot_widget.setMinimumSize(100, 100)
 
 		# Настройка области отображения
 		self.plot_item = self.plot_widget.getPlotItem()
@@ -66,48 +67,6 @@ class PyQtGraphCanvas(QWidget):
 		layout.addWidget(self.plot_widget)
 		self.setLayout(layout)
 
-	@staticmethod
-	def hsv_to_rgb(h, s, v):
-		"""
-		Convert HSV color to RGB color.
-
-		Parameters:
-		h (float): Hue (0-360)
-		s (float): Saturation (0-100)
-		v (float): Value/Brightness (0-100)
-
-		Returns:
-		tuple: RGB values (r, g, b) where each is in range (0-255)
-		"""
-		# Normalize inputs
-		h = h % 360
-		s = s / 100
-		v = v / 100
-
-		c = v * s
-		x = c * (1 - abs((h / 60) % 2 - 1))
-		m = v - c
-
-		if 0 <= h < 60:
-			r, g, b = c, x, 0
-		elif 60 <= h < 120:
-			r, g, b = x, c, 0
-		elif 120 <= h < 180:
-			r, g, b = 0, c, x
-		elif 180 <= h < 240:
-			r, g, b = 0, x, c
-		elif 240 <= h < 300:
-			r, g, b = x, 0, c
-		else:
-			r, g, b = c, 0, x
-
-		# Scale to 0-255 range and convert to integers
-		r = int((r + m) * 255)
-		g = int((g + m) * 255)
-		b = int((b + m) * 255)
-
-		return (r, g, b)
-
 	def render_frame(self, frame):
 		"""Отрисовка кадра."""
 		self.logger.debug("Отрисовка кадра")
@@ -125,18 +84,26 @@ class PyQtGraphCanvas(QWidget):
 
 	def draw_points(self, points):
 		self.logger.debug(f"Отрисовка {len(points)} точек с размером {self.points_size}")
-		self.logger.debug(f"Форма массива точек: {points.shape}")
-		self.logger.debug(f"Цвет: {self.rgb_color}")
 		x = points[:, 0]
 		y = points[:, 1]
 		pen = mkPen(color=self.rgb_color, width=0)  # Белый цвет для теста
 		brush = mkBrush(color=self.rgb_color)
 		self.plot_item.plot(x, y, pen=None, symbol='o', symbolSize=self.points_size, symbolPen=pen, symbolBrush=brush)
-		self.logger.debug("Отрисовка завершена")
-
 
 	def draw_lines(self, lines):
-		self.logger.debug("Отрисовка линий")
+		self.logger.debug(f"Отрисовка {len(lines)} линий с толщиной {self.lines_width}")
+		if not lines:
+			self.logger.debug("Нет линий для отрисовки")
+			return
+		self.logger.debug(f"Цвет линий: {self.rgb_color}")
+		pen = mkPen(color=self.rgb_color, width=self.lines_width)
+		for line in lines:
+			try:
+				x = [line[0], line[2]]  # x-координаты начала и конца линии
+				y = [line[1], line[3]]  # y-координаты начала и конца линии
+				self.plot_item.plot(x, y, pen=pen, symbol=None)
+			except (IndexError, TypeError) as e:
+				self.logger.error(f"Ошибка при отрисовке линии {line}: {e}")
 
 	def draw_fill(self, lines):
 		self.logger.debug("Отрисовка заливки")
@@ -178,51 +145,51 @@ class PyQtGraphCanvas(QWidget):
 	def set_hue(self, value):
 		self.logger.debug(f"Установка оттенка основного цвета: {value}")
 		self.hsv_color["h"] = value
-		self.rgb_color = self.hsv_to_rgb(self.hsv_color["h"], self.hsv_color["s"], self.hsv_color["v"])
+		self.rgb_color = hsv_to_rgb(self.hsv_color["h"], self.hsv_color["s"], self.hsv_color["v"])
 		self.render_frame(self.frame)
 
 	def set_saturation(self, value):
 		self.logger.debug(f"Установка насыщенности основного цвета: {value}")
 		self.hsv_color["s"] = value
-		self.rgb_color = self.hsv_to_rgb(self.hsv_color["h"], self.hsv_color["s"], self.hsv_color["v"])
+		self.rgb_color = hsv_to_rgb(self.hsv_color["h"], self.hsv_color["s"], self.hsv_color["v"])
 		self.render_frame(self.frame)
 
 	def set_brightness(self, value):
 		self.logger.debug(f"Установка яркости основного цвета: {value}")
 		self.hsv_color["v"] = value
-		self.rgb_color = self.hsv_to_rgb(self.hsv_color["h"], self.hsv_color["s"], self.hsv_color["v"])
+		self.rgb_color = hsv_to_rgb(self.hsv_color["h"], self.hsv_color["s"], self.hsv_color["v"])
 		self.render_frame(self.frame)
 
 	def set_bg_hue(self, value):
 		self.logger.debug(f"Установка оттенка цвета фона: {value}")
 		self.hsv_bg_color["h"] = value
-		self.rgb_bg_color = self.hsv_to_rgb(self.hsv_bg_color["h"], self.hsv_bg_color["s"], self.hsv_bg_color["v"])
+		self.rgb_bg_color = hsv_to_rgb(self.hsv_bg_color["h"], self.hsv_bg_color["s"], self.hsv_bg_color["v"])
 		self.plot_widget.setBackground(self.rgb_bg_color)
 		self.render_frame(self.frame)
 
 	def set_bg_saturation(self, value):
 		self.logger.debug(f"Установка насыщенности цвета фона: {value}")
 		self.hsv_bg_color["s"] = value
-		self.rgb_bg_color = self.hsv_to_rgb(self.hsv_bg_color["h"], self.hsv_bg_color["s"], self.hsv_bg_color["v"])
+		self.rgb_bg_color = hsv_to_rgb(self.hsv_bg_color["h"], self.hsv_bg_color["s"], self.hsv_bg_color["v"])
 		self.plot_widget.setBackground(self.rgb_bg_color)
 		self.render_frame(self.frame)
 
 	def set_bg_brightness(self, value):
 		self.logger.debug(f"Установка яркости цвета фона: {value}")
 		self.hsv_bg_color["v"] = value
-		self.rgb_bg_color = self.hsv_to_rgb(self.hsv_bg_color["h"], self.hsv_bg_color["s"], self.hsv_bg_color["v"])
+		self.rgb_bg_color = hsv_to_rgb(self.hsv_bg_color["h"], self.hsv_bg_color["s"], self.hsv_bg_color["v"])
 		self.plot_widget.setBackground(self.rgb_bg_color)
 		self.render_frame(self.frame)
 
 	def set_color(self, h, s, v):
 		self.logger.debug(f"Установка основного цвета: {h=} {s=} {v=}")
 		self.hsv_color = {"h": h, "s": s, "v": v}
-		self.rgb_color = self.hsv_to_rgb(h, s, v)
+		self.rgb_color = hsv_to_rgb(h, s, v)
 		self.render_frame(self.frame)
 
 	def set_bg_color(self, h, s, v):
 		self.logger.debug(f"Установка цвета фона: {h=} {s=} {v=}")
 		self.hsv_bg_color = {"h": h, "s": s, "v": v}
-		self.rgb_bg_color = self.hsv_to_rgb(h, s, v)
+		self.rgb_bg_color = hsv_to_rgb(h, s, v)
 		self.plot_widget.setBackground(self.rgb_bg_color)
 		self.render_frame(self.frame)

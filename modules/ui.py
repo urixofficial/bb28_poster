@@ -1,7 +1,5 @@
-from math import floor
-
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QGroupBox, QSlider, QCheckBox, \
-    QLabel, QPushButton, QSplitter, QSpinBox, QSizePolicy
+    QLabel, QPushButton, QSpinBox, QSizePolicy
 from PySide6.QtCore import Qt
 from modules.canvas import PyQtGraphCanvas
 from loguru import logger
@@ -21,11 +19,13 @@ class MainUI(QWidget):
 
         # Основной layout с разделителем
         main_layout = QHBoxLayout()
-        splitter = QSplitter(Qt.Orientation.Horizontal)
+        main_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # Левая часть: OpenGL предпросмотр
         self.canvas = PyQtGraphCanvas(self.config_manager, log_level="DEBUG")
-        splitter.addWidget(self.canvas)
+        canvas_layout = QVBoxLayout()
+        canvas_layout.addWidget(self.canvas)
+        main_layout.addLayout(canvas_layout)
 
         # Правая часть: Панель управления
         self.control_panel = QWidget()
@@ -298,15 +298,22 @@ class MainUI(QWidget):
         control_layout.addWidget(actions_group)
 
         self.control_panel.setLayout(control_layout)
-        splitter.addWidget(self.control_panel)
 
         # Устанавливаем пропорции разделителя
-        main_layout.addWidget(splitter)
-        main_layout.setAlignment(Qt.AlignmentFlag.AlignRight)
+        main_layout.addWidget(self.control_panel)
         self.setLayout(main_layout)
 
     def update_canvas_size(self, event):
         self.logger.debug(f"Обновление размеров холста: высота панели = {self.control_panel.height()}")
-        self.canvas.setFixedHeight(self.control_panel.height())
-        aspect_ration = self.width_input.value() / self.height_input.value()
-        self.canvas.setFixedWidth(floor(self.control_panel.height() * aspect_ration))
+        width = self.width_input.value()
+        height = self.height_input.value()
+        max_size = self.control_panel.height()
+        aspect_ratio = width / height
+        if height > width:
+            self.canvas.setFixedHeight(max_size)
+            self.canvas.setFixedWidth(int(max_size * aspect_ratio))
+        else:
+            self.canvas.setFixedWidth(max_size)
+            self.canvas.setFixedHeight(int(width / aspect_ratio))
+
+        self.adjustSize()

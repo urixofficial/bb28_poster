@@ -1,6 +1,7 @@
 import sys
 from PySide6.QtWidgets import QApplication
 from modules.ui import MainUI
+from PySide6.QtCore import QTimer
 from modules.config_manager import ConfigManager
 from modules.animation_manager import AnimationManager
 from loguru import logger
@@ -12,12 +13,18 @@ class MainApplication:
         numeric_log_level = logger.level(log_level).no if isinstance(log_level, str) else log_level
         self.logger = logger.bind(module_level=numeric_log_level)
         logger.debug("Инициализация приложения")
+
         self.app = QApplication(sys.argv)
 
         # Загрузга модулей
         self.config_manager = ConfigManager("config.ini", "INFO")
-        self.ui = MainUI(self.config_manager, "DEBUG")
-        self.animation_manager = AnimationManager(self.config_manager, "DEBUG")
+        self.ui = MainUI(self.config_manager, "INFO")
+        self.animation_manager = AnimationManager(self.config_manager, "INFO")
+
+        # Таймер для анимации
+        self.animation_timer = QTimer()
+        self.animation_timer.timeout.connect(self.update_animation)
+        self.is_animating = False
 
         self.set_signals()
 
@@ -81,9 +88,28 @@ class MainApplication:
         self.ui.canvas.save_image()
 
     def start_animation(self):
-        self.logger.debug("Запуск анимации")
-        # Логика запуска анимации
-        pass
+        self.logger.debug("Запуск/остановка анимации")
+        if not self.is_animating:
+            # Запускаем анимацию
+            fps = self.ui.fps_input.value()
+            if fps <= 0:
+                self.logger.error("Частота кадров должна быть больше 0")
+                return
+            interval = 1000 // fps  # Интервал в миллисекундах
+            self.animation_timer.start(interval)
+            self.is_animating = True
+            self.ui.start_animation_btn.setText("Остановить анимацию")
+        else:
+            # Останавливаем анимацию
+            self.animation_timer.stop()
+            self.is_animating = False
+            self.ui.start_animation_btn.setText("Запустить анимацию")
+
+    def update_animation(self):
+        self.logger.debug("Обновление анимации")
+        self.animation_manager.update_frame()
+        frame = self.animation_manager.get_frame()
+        self.ui.canvas.render_frame(frame)
 
     def export_animation(self):
         self.logger.debug("Экспорт анимации")

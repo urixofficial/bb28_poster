@@ -1,5 +1,6 @@
 import random
 import numpy as np
+from scipy.spatial import Delaunay
 from loguru import logger
 
 class AnimationManager:
@@ -18,11 +19,151 @@ class AnimationManager:
 
     def init_frame(self):
         self.logger.debug("Инициализация кадра")
+
+        # Генерация 4 статичных точек в углах
+        corner_points = np.array([
+            [0, 0],  # Левый нижний угол
+            [self.frame_width, 0],  # Правый нижний угол
+            [0, self.frame_height],  # Левый верхний угол
+            [self.frame_width, self.frame_height]  # Правый верхний угол
+        ])
+
+        # Генерация случайных точек внутри холста
+        random_points = np.array([
+            [random.randint(0, self.frame_width), random.randint(0, self.frame_height)]
+            for _ in range(self.points_amount)
+        ])
+
+        # Генерация 8 точек на сторонах (по 2 на каждую сторону)
+        side_points = self._generate_side_points()
+
+        # Объединяем все точки
+        points = np.concatenate([corner_points, side_points, random_points])
+
+        # Генерация скоростей
+        max_speed = 5  # Максимальная скорость
+        velocities = np.zeros((len(points), 2), dtype=np.int64)
+
+        # Скорости для случайных точек (свободное движение)
+        for i in range(4 + 8, len(points)):  # Начиная с индекса 12 (после угловых и боковых точек)
+            velocities[i] = np.random.uniform(-max_speed, max_speed, 2).astype(np.int64)
+
+        # Скорости для точек на сторонах (движение только вдоль одной оси)
+        # Точки на верхней и нижней сторонах (индексы 4, 5, 6, 7) движутся по X
+        for i in [4, 5, 6, 7]:
+            velocities[i][0] = np.random.uniform(-max_speed, max_speed, 1).astype(np.int64)
+            velocities[i][1] = 0  # Нет движения по Y
+        # Точки на левой и правой сторонах (индексы 8, 9, 10, 11) движутся по Y
+        for i in [8, 9, 10, 11]:
+            velocities[i][0] = 0  # Нет движения по X
+            velocities[i][1] = np.random.uniform(-max_speed, max_speed, 1).astype(np.int64)
+
+        # Генерация линий с использованием триангуляции Делоне
+        lines = []
+        if len(points) >= 3:  # Для триангуляции нужно минимум 3 точки
+            try:
+                tri = Delaunay(points)
+                for simplex in tri.simplices:
+                    p1, p2, p3 = points[simplex]
+                    lines.append([p1[0], p1[1], p2[0], p2[1]])  # p1 -> p2
+                    lines.append([p2[0], p2[1], p3[0], p3[1]])  # p2 -> p3
+                    lines.append([p3[0], p3[1], p1[0], p1[1]])  # p3 -> p1
+            except Exception as e:
+                self.logger.error(f"Ошибка при выполнении триангуляции: {e}")
+        else:
+            self.logger.warning("Недостаточно точек для триангуляции (требуется минимум 3 точки)")
+
         self.frame = {
-            "points": np.array([[random.randint(0, self.frame_width), random.randint(0, self.frame_height)] for _ in range(self.points_amount)]),
-            "lines": [],
-            "fill": []
+            "points": points,
+            "lines": lines,
+            "fill": [],
+            "velocities": velocities
         }
+
+    def _generate_side_points(self):
+        """Генерация 8 точек на сторонах холста (по 2 на каждую сторону)."""
+        side_points = []
+        # Верхняя сторона (y = frame_height)
+        for _ in range(2):
+            x = random.randint(0, self.frame_width)
+            side_points.append([x, self.frame_height])
+        # Нижняя сторона (y = 0)
+        for _ in range(2):
+            x = random.randint(0, self.frame_width)
+            side_points.append([x, 0])
+        # Левая сторона (x = 0)
+        for _ in range(2):
+            y = random.randint(0, self.frame_height)
+            side_points.append([0, y])
+        # Правая сторона (x = frame_width)
+        for _ in range(2):
+            y = random.randint(0, self.frame_height)
+            side_points.append([self.frame_width, y])
+        return np.array(side_points)
+
+    def update_frame(self):
+        self.logger.debug("Обновление кадра для анимации")
+        # Обновляем позиции точек (кроме угловых)
+        self.frame["points"][4:] += self.frame["velocities"][4:] * self.animation_speed
+
+        # Ограничиваем точки рамками холста
+        for i in range(4, len(self.frame["points"])):
+            # Точки на верхней и нижней сторонах (индексы 4, 5, 6, 7)
+            if i in [4, 5, 6, 7]:
+                # Ограничение по X
+                if self.frame["points"][i][0] < 0:
+                    self.frame["points"][i][0] = -self.frame["points"][i][0]
+                    self.frame["velocities"][i][0] = -self.frame["velocities"][i][0]
+                elif self.frame["points"][i][0] > self.frame_width:
+                    self.frame["points"][i][0] = 2 * self.frame_width - self.frame["points"][i][0]
+                    self.frame["velocities"][i][0] = -self.frame["velocities"][i][0]
+                # Фиксируем Y
+                if i in [4, 5]:
+                    self.frame["points"][i][1] = self.frame_height  # Верхняя сторона
+                else:
+                    self.frame["points"][i][1] = 0  # Нижняя сторона
+            # Точки на левой и правой сторонах (индексы 8, 9, 10, 11)
+            elif i in [8, 9, 10, 11]:
+                # Ограничение по Y
+                if self.frame["points"][i][1] < 0:
+                    self.frame["points"][i][1] = -self.frame["points"][i][1]
+                    self.frame["velocities"][i][1] = -self.frame["velocities"][i][1]
+                elif self.frame["points"][i][1] > self.frame_height:
+                    self.frame["points"][i][1] = 2 * self.frame_height - self.frame["points"][i][1]
+                    self.frame["velocities"][i][1] = -self.frame["velocities"][i][1]
+                # Фиксируем X
+                if i in [8, 9]:
+                    self.frame["points"][i][0] = 0  # Левая сторона
+                else:
+                    self.frame["points"][i][0] = self.frame_width  # Правая сторона
+            # Остальные точки (свободное движение)
+            else:
+                if self.frame["points"][i][0] < 0:
+                    self.frame["points"][i][0] = -self.frame["points"][i][0]
+                    self.frame["velocities"][i][0] = -self.frame["velocities"][i][0]
+                elif self.frame["points"][i][0] > self.frame_width:
+                    self.frame["points"][i][0] = 2 * self.frame_width - self.frame["points"][i][0]
+                    self.frame["velocities"][i][0] = -self.frame["velocities"][i][0]
+                if self.frame["points"][i][1] < 0:
+                    self.frame["points"][i][1] = -self.frame["points"][i][1]
+                    self.frame["velocities"][i][1] = -self.frame["velocities"][i][1]
+                elif self.frame["points"][i][1] > self.frame_height:
+                    self.frame["points"][i][1] = 2 * self.frame_height - self.frame["points"][i][1]
+                    self.frame["velocities"][i][1] = -self.frame["velocities"][i][1]
+
+        # Пересчитываем линии с учетом новых позиций точек
+        lines = []
+        if len(self.frame["points"]) >= 3:
+            try:
+                tri = Delaunay(self.frame["points"])
+                for simplex in tri.simplices:
+                    p1, p2, p3 = self.frame["points"][simplex]
+                    lines.append([p1[0], p1[1], p2[0], p2[1]])
+                    lines.append([p2[0], p2[1], p3[0], p3[1]])
+                    lines.append([p3[0], p3[1], p1[0], p1[1]])
+            except Exception as e:
+                self.logger.error(f"Ошибка при выполнении триангуляции: {e}")
+        self.frame["lines"] = lines
 
     def get_frame(self):
         self.logger.debug("Получение кадра")
