@@ -15,9 +15,9 @@ class MainApplication:
         self.app = QApplication(sys.argv)
 
         # Загрузга модулей
-        self.config_manager = ConfigManager("config.ini", "INFO")
-        self.ui = MainUI(self.config_manager, "INFO")
-        self.animation_manager = AnimationManager(self.config_manager, "INFO")
+        self.config_manager = ConfigManager("config.ini", "DEBUG")
+        self.ui = MainUI(self.config_manager, "DEBUG")
+        self.animation_manager = AnimationManager(self.config_manager, "DEBUG")
 
         self.set_signals()
 
@@ -40,8 +40,12 @@ class MainApplication:
         """Подключение сигналов"""
         self.logger.debug("Подключение сигналов")
         try:
-            self.ui.width_input.textChanged.connect(self.animation_manager.set_width)
-            self.ui.height_input.textChanged.connect(self.animation_manager.set_height)
+            self.ui.width_input.valueChanged.connect(self.animation_manager.set_width)
+            self.ui.width_input.valueChanged.connect(self.ui.update_canvas_size)
+            self.ui.height_input.valueChanged.connect(self.animation_manager.set_height)
+            self.ui.height_input.valueChanged.connect(self.ui.update_canvas_size)
+            self.ui.fps_input.valueChanged.connect(self.animation_manager.set_fps)
+            self.ui.duration_input.valueChanged.connect(self.animation_manager.set_duration)
             self.ui.points_amount_slider.valueChanged.connect(self.animation_manager.set_points_amount)
             self.ui.points_check.toggled.connect(self.ui.canvas.set_points_check)
             self.ui.points_size_slider.valueChanged.connect(self.ui.canvas.set_points_size)
@@ -58,6 +62,9 @@ class MainApplication:
             self.ui.animation_speed_slider.valueChanged.connect(self.animation_manager.set_animation_speed)
             self.ui.transition_speed_slider.valueChanged.connect(self.animation_manager.set_transition_speed)
             self.ui.generate_frame_btn.clicked.connect(self.generate_frame)
+            self.ui.export_frame_btn.clicked.connect(self.export_frame)
+            self.ui.start_animation_btn.clicked.connect(self.start_animation)
+            self.ui.export_animation_btn.clicked.connect(self.export_animation)
         except AttributeError as e:
             logger.error(f"Ошибка при подключении сигналов: {e}")
             raise
@@ -68,6 +75,20 @@ class MainApplication:
         self.animation_manager.init_frame()
         frame = self.animation_manager.get_frame()
         self.ui.canvas.render_frame(frame)
+
+    def export_frame(self):
+        self.logger.debug("Экспорт кадра")
+        self.ui.canvas.save_image()
+
+    def start_animation(self):
+        self.logger.debug("Запуск анимации")
+        # Логика запуска анимации
+        pass
+
+    def export_animation(self):
+        self.logger.debug("Экспорт анимации")
+        # Логика экспорта анимации
+        pass
 
     def run(self):
         self.ui.show()

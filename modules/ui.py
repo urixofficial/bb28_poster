@@ -1,8 +1,9 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QGroupBox, QSlider, QCheckBox, QLineEdit, \
-    QLabel, QPushButton, QSplitter, QSpinBox
-from PySide6.QtGui import QIntValidator
+from math import floor
+
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QGroupBox, QSlider, QCheckBox, \
+    QLabel, QPushButton, QSplitter, QSpinBox, QSizePolicy
 from PySide6.QtCore import Qt
-from modules.canvas import OpenGLCanvas
+from modules.canvas import PyQtGraphCanvas
 from loguru import logger
 
 class MainUI(QWidget):
@@ -17,21 +18,19 @@ class MainUI(QWidget):
         self.logger.debug("Инициализация интерфейса")
 
         self.setWindowTitle(self.config_manager.get_str("Window", "title"))
-        self.resize(
-            self.config_manager.get_int("Window", "width"),
-            self.config_manager.get_int("Window", "height")
-        )
 
         # Основной layout с разделителем
         main_layout = QHBoxLayout()
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
         # Левая часть: OpenGL предпросмотр
-        self.canvas = OpenGLCanvas(self.config_manager, log_level="DEBUG")
+        self.canvas = PyQtGraphCanvas(self.config_manager, log_level="DEBUG")
         splitter.addWidget(self.canvas)
 
         # Правая часть: Панель управления
-        control_panel = QWidget()
+        self.control_panel = QWidget()
+        self.control_panel.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        self.control_panel.resizeEvent = self.update_canvas_size
         control_layout = QVBoxLayout()
         control_layout.setSpacing(30)
 
@@ -91,6 +90,7 @@ class MainUI(QWidget):
         self.points_amount_slider.valueChanged.connect(lambda: self.points_amount_value.setText(str(self.points_amount_slider.value())))
 
         self.points_check = QCheckBox("Точки")
+        self.points_check.setChecked(self.config_manager.get_bool("GenerationParams", "points_check"))
         points_size_label = QLabel("Размер")
         self.points_size_slider = QSlider(Qt.Orientation.Horizontal)
         self.points_size_slider.setRange(
@@ -103,6 +103,7 @@ class MainUI(QWidget):
             lambda: self.points_size_value.setText(str(self.points_size_slider.value())))
 
         self.lines_check = QCheckBox("Линии")
+        self.lines_check.setChecked(self.config_manager.get_bool("GenerationParams", "lines_check"))
         lines_width_label = QLabel("Толщина:")
         self.lines_width_slider = QSlider(Qt.Orientation.Horizontal)
         self.lines_width_slider.setRange(
@@ -115,6 +116,7 @@ class MainUI(QWidget):
             lambda: self.lines_width_value.setText(str(self.lines_width_slider.value())))
 
         self.fill_check = QCheckBox("Заливка")
+        self.fill_check.setChecked(self.config_manager.get_bool("GenerationParams", "fill_check"))
         fill_label = QLabel("Разброс:")
         self.fill_variation_slider = QSlider(Qt.Orientation.Horizontal)
         self.fill_variation_slider.setRange(
@@ -295,9 +297,16 @@ class MainUI(QWidget):
         actions_group.setLayout(actions_layout)
         control_layout.addWidget(actions_group)
 
-        control_panel.setLayout(control_layout)
-        splitter.addWidget(control_panel)
+        self.control_panel.setLayout(control_layout)
+        splitter.addWidget(self.control_panel)
 
         # Устанавливаем пропорции разделителя
         main_layout.addWidget(splitter)
+        main_layout.setAlignment(Qt.AlignmentFlag.AlignRight)
         self.setLayout(main_layout)
+
+    def update_canvas_size(self, event):
+        self.logger.debug(f"Обновление размеров холста: высота панели = {self.control_panel.height()}")
+        self.canvas.setFixedHeight(self.control_panel.height())
+        aspect_ration = self.width_input.value() / self.height_input.value()
+        self.canvas.setFixedWidth(floor(self.control_panel.height() * aspect_ration))

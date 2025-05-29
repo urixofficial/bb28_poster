@@ -7,8 +7,10 @@ class AnimationManager:
         numeric_log_level = logger.level(log_level).no if isinstance(log_level, str) else log_level
         self.logger = logger.bind(module_level=numeric_log_level)
         self.config = config_manager
-        self.width = self.config.get_int("ImageParams", "width_default")
-        self.height = self.config.get_int("ImageParams", "height_default")
+        self.frame_width = self.config.get_int("ImageParams", "width_default")
+        self.frame_height = self.config.get_int("ImageParams", "height_default")
+        self.fps = self.config.get_int("ImageParams", "fps_default")
+        self.duration = self.config.get_int("ImageParams", "duration_default")
         self.points_amount = self.config.get_int("GenerationParams", "points_amount_default")
         self.animation_speed = self.config.get_int("AnimationParams", "animation_speed_default")
         self.transition_speed = self.config.get_int("AnimationParams", "transition_speed_default")
@@ -17,7 +19,7 @@ class AnimationManager:
     def init_frame(self):
         self.logger.debug("Инициализация кадра")
         self.frame = {
-            "points": np.array([[random.randint(0, self.width), random.randint(0, self.height)] for _ in range(self.points_amount)]),
+            "points": np.array([[random.randint(0, self.frame_width), random.randint(0, self.frame_height)] for _ in range(self.points_amount)]),
             "lines": [],
             "fill": []
         }
@@ -28,29 +30,89 @@ class AnimationManager:
 
     def set_points_amount(self, value):
         self.logger.debug(f"Установка количества точек: {value}")
-        self.points_amount = value
-        self.init_frame()
+        try:
+            value = int(value)
+            min_value = self.config.get_int("GenerationParams", "points_amount_min")
+            max_value = self.config.get_int("GenerationParams", "points_amount_max")
+            if not (min_value <= value <= max_value):
+                raise ValueError(f"Количество точек быть в диапазоне [{min_value}, {max_value}]")
+            self.points_amount = value
+            self.init_frame()
+        except (ValueError, TypeError) as e:
+            self.logger.error(f"Некорректное количества точек: {value}, ошибка: {e}")
 
     def set_width(self, value):
         self.logger.debug(f"Установка ширины: {value}")
         try:
-            self.width = int(value)
+            value = int(value)
+            min_value = self.config.get_int("ImageParams", "width_min")
+            max_value = self.config.get_int("ImageParams", "width_max")
+            if not (min_value <= value <= max_value):
+                raise ValueError(f"Ширина должна быть в диапазоне [{min_value}, {max_value}]")
+            self.frame_width = value
             self.init_frame()
-        except ValueError:
-            self.logger.error(f"Некорректное значение ширины: {value}")
+        except (ValueError, TypeError) as e:
+            self.logger.error(f"Некорректное значение ширины: {value}, ошибка: {e}")
 
     def set_height(self, value):
         self.logger.debug(f"Установка высоты: {value}")
         try:
-            self.height = int(value)
+            value = int(value)
+            min_value = self.config.get_int("ImageParams", "height_min")
+            max_value = self.config.get_int("ImageParams", "height_max")
+            if not (min_value <= value <= max_value):
+                raise ValueError(f"Высота должна быть в диапазоне [{min_value}, {max_value}]")
+            self.frame_height = value
             self.init_frame()
-        except ValueError:
-            self.logger.error(f"Некорректное значение высоты: {value}")
+        except (ValueError, TypeError) as e:
+            self.logger.error(f"Некорректное значение высоты: {value}, ошибка: {e}")
+
+    def set_fps(self, value):
+        self.logger.debug(f"Установка частоты кадров: {value}")
+        try:
+            value = int(value)
+            min_value = self.config.get_int("AnimationParams", "fps_min")
+            max_value = self.config.get_int("AnimationParams", "fps_max")
+            if not (min_value <= value <= max_value):
+                raise ValueError(f"Частота кадров должна быть в диапазоне [{min_value}, {max_value}]")
+            self.fps = value
+            self.init_frame()
+        except (ValueError, TypeError) as e:
+            self.logger.error(f"Некорректное значение частоты кадров: {value}, ошибка: {e}")
+
+    def set_duration(self, value):
+        self.logger.debug(f"Установка длительности: {value}")
+        try:
+            value = int(value)
+            min_value = self.config.get_int("AnimationParams", "duration_min")
+            max_value = self.config.get_int("AnimationParams", "duration_max")
+            if not (min_value <= value <= max_value):
+                raise ValueError(f"Длительность должна быть в диапазоне [{min_value}, {max_value}]")
+            self.duration = value
+            self.init_frame()
+        except (ValueError, TypeError) as e:
+            self.logger.error(f"Некорректное значение длительности: {value}, ошибка: {e}")
 
     def set_animation_speed(self, value):
         self.logger.debug(f"Установка скорости анимации: {value}")
-        self.animation_speed = value
+        try:
+            value = int(value)
+            min_value = self.config.get_int("AnimationParams", "animation_speed_min")
+            max_value = self.config.get_int("AnimationParams", "animation_speed_max")
+            if not (min_value <= value <= max_value):
+                raise ValueError(f"Скорость анимации должна быть в диапазоне [{min_value}, {max_value}]")
+            self.animation_speed = value
+        except (ValueError, TypeError) as e:
+            self.logger.error(f"Некорректное значение скорости анимации: {value}, ошибка: {e}")
 
     def set_transition_speed(self, value):
         self.logger.debug(f"Установка скорости переходов: {value}")
-        self.transition_speed = value
+        try:
+            value = int(value)
+            min_value = self.config.get_int("AnimationParams", "transition_speed_min")
+            max_value = self.config.get_int("AnimationParams", "transition_speed_max")
+            if not (min_value <= value <= max_value):
+                raise ValueError(f"Скорость переходов должна быть в диапазоне [{min_value}, {max_value}]")
+            self.transition_speed = value
+        except (ValueError, TypeError) as e:
+            self.logger.error(f"Некорректное значение скорости переходов: {value}, ошибка: {e}")
