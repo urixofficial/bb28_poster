@@ -1,11 +1,11 @@
-from PySide6.QtWidgets import QWidget
+from PySide6.QtWidgets import QWidget, QVBoxLayout
 from pyqtgraph import PlotWidget, mkPen, mkBrush
 from modules.utils import hsv_to_rgb
 from loguru import logger
 
 
-class PyQtGraphCanvas(QWidget):
-	def __init__(self, config_manager, log_level="INFO"):
+class RenderManager():
+	def __init__(self, config_manager, canvas, log_level="INFO"):
 		super().__init__()
 		numeric_log_level = logger.level(log_level).no if isinstance(log_level, str) else log_level
 		self.logger = logger.bind(module_level=numeric_log_level)
@@ -40,10 +40,9 @@ class PyQtGraphCanvas(QWidget):
 		self.frame_height = self.config.get_int("ImageParams", "height_default")
 		self.frame = None
 
-		# Создаем виджет PyQtGraph
-		self.plot_widget = PlotWidget(self)
+		self.canvas = canvas
+		self.plot_widget = PlotWidget()
 		self.plot_widget.setBackground(self.rgb_bg_color)
-		self.plot_widget.setSizePolicy(self.sizePolicy())
 
 		# Настройка области отображения
 		self.plot_item = self.plot_widget.getPlotItem()
@@ -59,13 +58,12 @@ class PyQtGraphCanvas(QWidget):
 		self.plot_item.setMouseEnabled(x=False, y=False)
 
 		# Отключаем автоматическое изменение диапазона
-		self.plot_item.enableAutoRange(x=False, y=False)
+		self.plot_item.enableAutoRange(x=True, y=True)
 
 		# Добавляем виджет в layout
-		from PySide6.QtWidgets import QVBoxLayout
 		layout = QVBoxLayout()
 		layout.addWidget(self.plot_widget)
-		self.setLayout(layout)
+		self.canvas.setLayout(layout)
 
 	def render_frame(self, frame):
 		"""Отрисовка кадра."""
@@ -95,7 +93,6 @@ class PyQtGraphCanvas(QWidget):
 		if not lines:
 			self.logger.debug("Нет линий для отрисовки")
 			return
-		self.logger.debug(f"Цвет линий: {self.rgb_color}")
 		pen = mkPen(color=self.rgb_color, width=self.lines_width)
 		for line in lines:
 			try:

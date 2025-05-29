@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QGroupBox, QSlider, QCheckBox, \
     QLabel, QPushButton, QSpinBox, QSizePolicy
 from PySide6.QtCore import Qt
-from modules.canvas import PyQtGraphCanvas
+from pyqtgraph import PlotWidget
 from loguru import logger
 
 class MainUI(QWidget):
@@ -9,23 +9,21 @@ class MainUI(QWidget):
         super().__init__()
         numeric_log_level = logger.level(log_level).no if isinstance(log_level, str) else log_level
         self.logger = logger.bind(module_level=numeric_log_level)
-        self.config_manager = config_manager
+        self.config = config_manager
         self.init_ui()
 
     def init_ui(self):
         self.logger.debug("Инициализация интерфейса")
 
-        self.setWindowTitle(self.config_manager.get_str("Window", "title"))
+        self.setWindowTitle(self.config.get_str("Window", "title"))
 
         # Основной layout с разделителем
         main_layout = QHBoxLayout()
         main_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        # Левая часть: OpenGL предпросмотр
-        self.canvas = PyQtGraphCanvas(self.config_manager, log_level="DEBUG")
-        canvas_layout = QVBoxLayout()
-        canvas_layout.addWidget(self.canvas)
-        main_layout.addLayout(canvas_layout)
+        # Левая часть: предпросмотр
+        self.canvas = QWidget()
+        main_layout.addWidget(self.canvas)
 
         # Правая часть: Панель управления
         self.control_panel = QWidget()
@@ -40,27 +38,27 @@ class MainUI(QWidget):
 
         width_label = QLabel("Ширина (px):")
         self.width_input = QSpinBox(
-            minimum=self.config_manager.get_int("ImageParams", "width_min"),
-            maximum=self.config_manager.get_int("ImageParams", "width_max"),
-            value=self.config_manager.get_int("ImageParams", "width_default")
+            minimum=self.config.get_int("ImageParams", "width_min"),
+            maximum=self.config.get_int("ImageParams", "width_max"),
+            value=self.config.get_int("ImageParams", "width_default")
         )
         height_label = QLabel("Высота (px):")
         self.height_input = QSpinBox(
-            minimum=self.config_manager.get_int("ImageParams", "height_min"),
-            maximum=self.config_manager.get_int("ImageParams", "height_max"),
-            value=self.config_manager.get_int("ImageParams", "height_default")
+            minimum=self.config.get_int("ImageParams", "height_min"),
+            maximum=self.config.get_int("ImageParams", "height_max"),
+            value=self.config.get_int("ImageParams", "height_default")
         )
         fps_label = QLabel("Кадров/с:")
         self.fps_input = QSpinBox(
-            minimum=self.config_manager.get_int("ImageParams", "fps_min"),
-            maximum=self.config_manager.get_int("ImageParams", "fps_max"),
-            value=self.config_manager.get_int("ImageParams", "fps_default")
+            minimum=self.config.get_int("ImageParams", "fps_min"),
+            maximum=self.config.get_int("ImageParams", "fps_max"),
+            value=self.config.get_int("ImageParams", "fps_default")
         )
         duration_label = QLabel("Длительность (с):")
         self.duration_input = QSpinBox(
-            minimum=self.config_manager.get_int("ImageParams", "duration_min"),
-            maximum=self.config_manager.get_int("ImageParams", "duration_max"),
-            value=self.config_manager.get_int("ImageParams", "duration_default")
+            minimum=self.config.get_int("ImageParams", "duration_min"),
+            maximum=self.config.get_int("ImageParams", "duration_max"),
+            value=self.config.get_int("ImageParams", "duration_default")
         )
 
         image_params_layout.addWidget(width_label, 0, 0)
@@ -82,49 +80,49 @@ class MainUI(QWidget):
         points_amount_label = QLabel("Количество:")
         self.points_amount_slider = QSlider(Qt.Orientation.Horizontal)
         self.points_amount_slider.setRange(
-            self.config_manager.get_int("GenerationParams", "points_amount_min"),
-            self.config_manager.get_int("GenerationParams", "points_amount_max")
+            self.config.get_int("GenerationParams", "points_amount_min"),
+            self.config.get_int("GenerationParams", "points_amount_max")
         )
-        self.points_amount_slider.setValue(self.config_manager.get_int("GenerationParams", "points_amount_default"))
-        self.points_amount_value = QLabel(str(self.config_manager.get_int("GenerationParams", "points_amount_default")))
+        self.points_amount_slider.setValue(self.config.get_int("GenerationParams", "points_amount_default"))
+        self.points_amount_value = QLabel(str(self.config.get_int("GenerationParams", "points_amount_default")))
         self.points_amount_slider.valueChanged.connect(lambda: self.points_amount_value.setText(str(self.points_amount_slider.value())))
 
         self.points_check = QCheckBox("Точки")
-        self.points_check.setChecked(self.config_manager.get_bool("GenerationParams", "points_check"))
+        self.points_check.setChecked(self.config.get_bool("GenerationParams", "points_check"))
         points_size_label = QLabel("Размер")
         self.points_size_slider = QSlider(Qt.Orientation.Horizontal)
         self.points_size_slider.setRange(
-            self.config_manager.get_int("GenerationParams", "points_size_min"),
-            self.config_manager.get_int("GenerationParams", "points_size_max")
+            self.config.get_int("GenerationParams", "points_size_min"),
+            self.config.get_int("GenerationParams", "points_size_max")
         )
-        self.points_size_slider.setValue(self.config_manager.get_int("GenerationParams", "points_size_default"))
-        self.points_size_value = QLabel(str(self.config_manager.get_int("GenerationParams", "points_size_default")))
+        self.points_size_slider.setValue(self.config.get_int("GenerationParams", "points_size_default"))
+        self.points_size_value = QLabel(str(self.config.get_int("GenerationParams", "points_size_default")))
         self.points_size_slider.valueChanged.connect(
             lambda: self.points_size_value.setText(str(self.points_size_slider.value())))
 
         self.lines_check = QCheckBox("Линии")
-        self.lines_check.setChecked(self.config_manager.get_bool("GenerationParams", "lines_check"))
+        self.lines_check.setChecked(self.config.get_bool("GenerationParams", "lines_check"))
         lines_width_label = QLabel("Толщина:")
         self.lines_width_slider = QSlider(Qt.Orientation.Horizontal)
         self.lines_width_slider.setRange(
-            self.config_manager.get_int("GenerationParams", "lines_width_min"),
-            self.config_manager.get_int("GenerationParams", "lines_width_max")
+            self.config.get_int("GenerationParams", "lines_width_min"),
+            self.config.get_int("GenerationParams", "lines_width_max")
         )
-        self.lines_width_slider.setValue(self.config_manager.get_int("GenerationParams", "lines_width_default"))
-        self.lines_width_value = QLabel(str(self.config_manager.get_int("GenerationParams", "lines_width_default")))
+        self.lines_width_slider.setValue(self.config.get_int("GenerationParams", "lines_width_default"))
+        self.lines_width_value = QLabel(str(self.config.get_int("GenerationParams", "lines_width_default")))
         self.lines_width_slider.valueChanged.connect(
             lambda: self.lines_width_value.setText(str(self.lines_width_slider.value())))
 
         self.fill_check = QCheckBox("Заливка")
-        self.fill_check.setChecked(self.config_manager.get_bool("GenerationParams", "fill_check"))
+        self.fill_check.setChecked(self.config.get_bool("GenerationParams", "fill_check"))
         fill_label = QLabel("Разброс:")
         self.fill_variation_slider = QSlider(Qt.Orientation.Horizontal)
         self.fill_variation_slider.setRange(
-            self.config_manager.get_int("GenerationParams", "fill_variation_min"),
-            self.config_manager.get_int("GenerationParams", "fill_variation_max")
+            self.config.get_int("GenerationParams", "fill_variation_min"),
+            self.config.get_int("GenerationParams", "fill_variation_max")
         )
-        self.fill_variation_slider.setValue(self.config_manager.get_int("GenerationParams", "fill_variation_default"))
-        self.fill_variation_value = QLabel(str(self.config_manager.get_int("GenerationParams", "fill_variation_default")))
+        self.fill_variation_slider.setValue(self.config.get_int("GenerationParams", "fill_variation_default"))
+        self.fill_variation_value = QLabel(str(self.config.get_int("GenerationParams", "fill_variation_default")))
         self.fill_variation_slider.valueChanged.connect(lambda: self.fill_variation_value.setText(str(self.fill_variation_slider.value())))
 
         gen_params_layout.addWidget(points_amount_label, 0, 0)
@@ -153,32 +151,32 @@ class MainUI(QWidget):
         hue_label = QLabel("Оттенок:")
         self.hue_slider = QSlider(Qt.Orientation.Horizontal)
         self.hue_slider.setRange(
-            self.config_manager.get_int("ColorParams", "hue_min"),
-            self.config_manager.get_int("ColorParams", "hue_max")
+            self.config.get_int("ColorParams", "hue_min"),
+            self.config.get_int("ColorParams", "hue_max")
         )
-        self.hue_slider.setValue(self.config_manager.get_int("ColorParams", "hue_default"))
-        self.hue_value = QLabel(str(self.config_manager.get_int("ColorParams", "hue_default")))
+        self.hue_slider.setValue(self.config.get_int("ColorParams", "hue_default"))
+        self.hue_value = QLabel(str(self.config.get_int("ColorParams", "hue_default")))
         self.hue_slider.valueChanged.connect(lambda: self.hue_value.setText(str(self.hue_slider.value())))
 
         saturation_label = QLabel("Насыщенность:")
         self.saturation_slider = QSlider(Qt.Orientation.Horizontal)
         self.saturation_slider.setRange(
-            self.config_manager.get_int("ColorParams", "saturation_min"),
-            self.config_manager.get_int("ColorParams", "saturation_max")
+            self.config.get_int("ColorParams", "saturation_min"),
+            self.config.get_int("ColorParams", "saturation_max")
         )
-        self.saturation_slider.setValue(self.config_manager.get_int("ColorParams", "saturation_default"))
-        self.saturation_value = QLabel(str(self.config_manager.get_int("ColorParams", "saturation_default")))
+        self.saturation_slider.setValue(self.config.get_int("ColorParams", "saturation_default"))
+        self.saturation_value = QLabel(str(self.config.get_int("ColorParams", "saturation_default")))
         self.saturation_slider.valueChanged.connect(
             lambda: self.saturation_value.setText(str(self.saturation_slider.value())))
 
         brightness_label = QLabel("Яркость:")
         self.brightness_slider = QSlider(Qt.Orientation.Horizontal)
         self.brightness_slider.setRange(
-            self.config_manager.get_int("ColorParams", "brightness_min"),
-            self.config_manager.get_int("ColorParams", "brightness_max")
+            self.config.get_int("ColorParams", "brightness_min"),
+            self.config.get_int("ColorParams", "brightness_max")
         )
-        self.brightness_slider.setValue(self.config_manager.get_int("ColorParams", "brightness_default"))
-        self.brightness_value = QLabel(str(self.config_manager.get_int("ColorParams", "brightness_default")))
+        self.brightness_slider.setValue(self.config.get_int("ColorParams", "brightness_default"))
+        self.brightness_value = QLabel(str(self.config.get_int("ColorParams", "brightness_default")))
         self.brightness_slider.valueChanged.connect(
             lambda: self.brightness_value.setText(str(self.brightness_slider.value())))
 
@@ -202,32 +200,32 @@ class MainUI(QWidget):
         bg_hue_label = QLabel("Оттенок:")
         self.bg_hue_slider = QSlider(Qt.Orientation.Horizontal)
         self.bg_hue_slider.setRange(
-            self.config_manager.get_int("ColorParams", "bg_hue_min"),
-            self.config_manager.get_int("ColorParams", "bg_hue_max")
+            self.config.get_int("ColorParams", "bg_hue_min"),
+            self.config.get_int("ColorParams", "bg_hue_max")
         )
-        self.bg_hue_slider.setValue(self.config_manager.get_int("ColorParams", "bg_hue_default"))
-        self.bg_hue_value = QLabel(str(self.config_manager.get_int("ColorParams", "bg_hue_default")))
+        self.bg_hue_slider.setValue(self.config.get_int("ColorParams", "bg_hue_default"))
+        self.bg_hue_value = QLabel(str(self.config.get_int("ColorParams", "bg_hue_default")))
         self.bg_hue_slider.valueChanged.connect(lambda: self.bg_hue_value.setText(str(self.bg_hue_slider.value())))
 
         bg_saturation_label = QLabel("Насыщенность:")
         self.bg_saturation_slider = QSlider(Qt.Orientation.Horizontal)
         self.bg_saturation_slider.setRange(
-            self.config_manager.get_int("ColorParams", "bg_saturation_min"),
-            self.config_manager.get_int("ColorParams", "bg_saturation_max")
+            self.config.get_int("ColorParams", "bg_saturation_min"),
+            self.config.get_int("ColorParams", "bg_saturation_max")
         )
-        self.bg_saturation_slider.setValue(self.config_manager.get_int("ColorParams", "bg_saturation_default"))
-        self.bg_saturation_value = QLabel(str(self.config_manager.get_int("ColorParams", "bg_saturation_default")))
+        self.bg_saturation_slider.setValue(self.config.get_int("ColorParams", "bg_saturation_default"))
+        self.bg_saturation_value = QLabel(str(self.config.get_int("ColorParams", "bg_saturation_default")))
         self.bg_saturation_slider.valueChanged.connect(
             lambda: self.bg_saturation_value.setText(str(self.bg_saturation_slider.value())))
 
         bg_brightness_label = QLabel("Яркость:")
         self.bg_brightness_slider = QSlider(Qt.Orientation.Horizontal)
         self.bg_brightness_slider.setRange(
-            self.config_manager.get_int("ColorParams", "bg_brightness_min"),
-            self.config_manager.get_int("ColorParams", "bg_brightness_max")
+            self.config.get_int("ColorParams", "bg_brightness_min"),
+            self.config.get_int("ColorParams", "bg_brightness_max")
         )
-        self.bg_brightness_slider.setValue(self.config_manager.get_int("ColorParams", "bg_brightness_default"))
-        self.bg_brightness_value = QLabel(str(self.config_manager.get_int("ColorParams", "bg_brightness_default")))
+        self.bg_brightness_slider.setValue(self.config.get_int("ColorParams", "bg_brightness_default"))
+        self.bg_brightness_value = QLabel(str(self.config.get_int("ColorParams", "bg_brightness_default")))
         self.bg_brightness_slider.valueChanged.connect(
             lambda: self.bg_brightness_value.setText(str(self.bg_brightness_slider.value())))
 
@@ -251,22 +249,22 @@ class MainUI(QWidget):
         transition_speed_label = QLabel("Скорость переходов:")
         self.transition_speed_slider = QSlider(Qt.Orientation.Horizontal)
         self.transition_speed_slider.setRange(
-            self.config_manager.get_int("AnimationParams", "transition_speed_min"),
-            self.config_manager.get_int("AnimationParams", "transition_speed_max")
+            self.config.get_int("AnimationParams", "transition_speed_min"),
+            self.config.get_int("AnimationParams", "transition_speed_max")
         )
-        self.transition_speed_slider.setValue(self.config_manager.get_int("AnimationParams", "transition_speed_default"))
-        self.transition_speed_value = QLabel(str(self.config_manager.get_int("AnimationParams", "transition_speed_default")))
+        self.transition_speed_slider.setValue(self.config.get_int("AnimationParams", "transition_speed_default"))
+        self.transition_speed_value = QLabel(str(self.config.get_int("AnimationParams", "transition_speed_default")))
         self.transition_speed_slider.valueChanged.connect(
             lambda: self.transition_speed_value.setText(str(self.transition_speed_slider.value())))
 
         animation_speed_label = QLabel("Скорость анимации:")
         self.animation_speed_slider = QSlider(Qt.Orientation.Horizontal)
         self.animation_speed_slider.setRange(
-            self.config_manager.get_int("AnimationParams", "animation_speed_min"),
-            self.config_manager.get_int("AnimationParams", "animation_speed_max")
+            self.config.get_int("AnimationParams", "animation_speed_min"),
+            self.config.get_int("AnimationParams", "animation_speed_max")
         )
-        self.animation_speed_slider.setValue(self.config_manager.get_int("AnimationParams", "animation_speed_default"))
-        self.animation_speed_value = QLabel(str(self.config_manager.get_int("AnimationParams", "animation_speed_default")))
+        self.animation_speed_slider.setValue(self.config.get_int("AnimationParams", "animation_speed_default"))
+        self.animation_speed_value = QLabel(str(self.config.get_int("AnimationParams", "animation_speed_default")))
         self.animation_speed_slider.valueChanged.connect(
             lambda: self.animation_speed_value.setText(str(self.animation_speed_slider.value())))
 

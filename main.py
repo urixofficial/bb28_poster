@@ -4,6 +4,7 @@ from modules.ui import MainUI
 from PySide6.QtCore import QTimer
 from modules.config_manager import ConfigManager
 from modules.animation_manager import AnimationManager
+from modules.render_manager import RenderManager
 from loguru import logger
 
 class MainApplication:
@@ -20,6 +21,7 @@ class MainApplication:
         self.config_manager = ConfigManager("config.ini", "INFO")
         self.ui = MainUI(self.config_manager, "INFO")
         self.animation_manager = AnimationManager(self.config_manager, "INFO")
+        self.render_manager = RenderManager(self.config_manager, self.ui.canvas, "INFO")
 
         # Таймер для анимации
         self.animation_timer = QTimer()
@@ -54,18 +56,18 @@ class MainApplication:
             self.ui.fps_input.valueChanged.connect(self.animation_manager.set_fps)
             self.ui.duration_input.valueChanged.connect(self.animation_manager.set_duration)
             self.ui.points_amount_slider.valueChanged.connect(self.animation_manager.set_points_amount)
-            self.ui.points_check.toggled.connect(self.ui.canvas.set_points_check)
-            self.ui.points_size_slider.valueChanged.connect(self.ui.canvas.set_points_size)
-            self.ui.lines_check.toggled.connect(self.ui.canvas.set_lines_check)
-            self.ui.lines_width_slider.valueChanged.connect(self.ui.canvas.set_lines_width)
-            self.ui.fill_check.toggled.connect(self.ui.canvas.set_fill_check)
-            self.ui.fill_variation_slider.valueChanged.connect(self.ui.canvas.set_fill_variation)
-            self.ui.hue_slider.valueChanged.connect(self.ui.canvas.set_hue)
-            self.ui.saturation_slider.valueChanged.connect(self.ui.canvas.set_saturation)
-            self.ui.brightness_slider.valueChanged.connect(self.ui.canvas.set_brightness)
-            self.ui.bg_hue_slider.valueChanged.connect(self.ui.canvas.set_bg_hue)
-            self.ui.bg_saturation_slider.valueChanged.connect(self.ui.canvas.set_bg_saturation)
-            self.ui.bg_brightness_slider.valueChanged.connect(self.ui.canvas.set_bg_brightness)
+            self.ui.points_check.toggled.connect(self.render_manager.set_points_check)
+            self.ui.points_size_slider.valueChanged.connect(self.render_manager.set_points_size)
+            self.ui.lines_check.toggled.connect(self.render_manager.set_lines_check)
+            self.ui.lines_width_slider.valueChanged.connect(self.render_manager.set_lines_width)
+            self.ui.fill_check.toggled.connect(self.render_manager.set_fill_check)
+            self.ui.fill_variation_slider.valueChanged.connect(self.render_manager.set_fill_variation)
+            self.ui.hue_slider.valueChanged.connect(self.render_manager.set_hue)
+            self.ui.saturation_slider.valueChanged.connect(self.render_manager.set_saturation)
+            self.ui.brightness_slider.valueChanged.connect(self.render_manager.set_brightness)
+            self.ui.bg_hue_slider.valueChanged.connect(self.render_manager.set_bg_hue)
+            self.ui.bg_saturation_slider.valueChanged.connect(self.render_manager.set_bg_saturation)
+            self.ui.bg_brightness_slider.valueChanged.connect(self.render_manager.set_bg_brightness)
             self.ui.animation_speed_slider.valueChanged.connect(self.animation_manager.set_animation_speed)
             self.ui.transition_speed_slider.valueChanged.connect(self.animation_manager.set_transition_speed)
             self.ui.generate_frame_btn.clicked.connect(self.generate_frame)
@@ -81,7 +83,7 @@ class MainApplication:
         self.logger.debug("Запуск генерации кадра")
         self.animation_manager.init_frame()
         frame = self.animation_manager.get_frame()
-        self.ui.canvas.render_frame(frame)
+        self.render_manager.render_frame(frame)
 
     def export_frame(self):
         self.logger.debug("Экспорт кадра")
@@ -109,7 +111,7 @@ class MainApplication:
         self.logger.debug("Обновление анимации")
         self.animation_manager.update_frame()
         frame = self.animation_manager.get_frame()
-        self.ui.canvas.render_frame(frame)
+        self.render_manager.render_frame(frame)
 
     def export_animation(self):
         self.logger.debug("Экспорт анимации")
