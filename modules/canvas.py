@@ -48,7 +48,17 @@ class PyQtGraphCanvas(QWidget):
 		self.plot_item = self.plot_widget.getPlotItem()
 		self.plot_item.setAspectLocked(True)
 		self.plot_item.setRange(xRange=(0, self.frame_width), yRange=(0, self.frame_height))
-		self.plot_item.invertY(False)  # Инвертируем ось Y для соответствия OpenGL
+		self.plot_item.invertY(False)
+
+		# Отключаем оси
+		self.plot_item.hideAxis('left')  # Скрываем ось Y
+		self.plot_item.hideAxis('bottom')  # Скрываем ось X
+
+		# Отключаем масштабирование и перемещение мышью
+		self.plot_item.setMouseEnabled(x=False, y=False)
+
+		# Отключаем автоматическое изменение диапазона
+		self.plot_item.enableAutoRange(x=False, y=False)
 
 		# Добавляем виджет в layout
 		from PySide6.QtWidgets import QVBoxLayout
@@ -56,14 +66,47 @@ class PyQtGraphCanvas(QWidget):
 		layout.addWidget(self.plot_widget)
 		self.setLayout(layout)
 
-	def hsv_to_rgb(self, h, s, v):
-		"""Преобразование цвета из HSV в RGB (значения от 0 до 1)."""
-		self.logger.debug(f"Преобразование HSV ({h}, {s}, {v}) в RGB")
-		h = h / 360.0  # Нормализация оттенка
-		s = s / 100.0  # Нормализация насыщенности
-		v = v / 100.0  # Нормализация яркости
-		rgb = colorsys.hsv_to_rgb(h, s, v)
-		return rgb  # Возвращает (r, g, b) в диапазоне [0, 1]
+	@staticmethod
+	def hsv_to_rgb(h, s, v):
+		"""
+		Convert HSV color to RGB color.
+
+		Parameters:
+		h (float): Hue (0-360)
+		s (float): Saturation (0-100)
+		v (float): Value/Brightness (0-100)
+
+		Returns:
+		tuple: RGB values (r, g, b) where each is in range (0-255)
+		"""
+		# Normalize inputs
+		h = h % 360
+		s = s / 100
+		v = v / 100
+
+		c = v * s
+		x = c * (1 - abs((h / 60) % 2 - 1))
+		m = v - c
+
+		if 0 <= h < 60:
+			r, g, b = c, x, 0
+		elif 60 <= h < 120:
+			r, g, b = x, c, 0
+		elif 120 <= h < 180:
+			r, g, b = 0, c, x
+		elif 180 <= h < 240:
+			r, g, b = 0, x, c
+		elif 240 <= h < 300:
+			r, g, b = x, 0, c
+		else:
+			r, g, b = c, 0, x
+
+		# Scale to 0-255 range and convert to integers
+		r = int((r + m) * 255)
+		g = int((g + m) * 255)
+		b = int((b + m) * 255)
+
+		return (r, g, b)
 
 	def render_frame(self, frame):
 		"""Отрисовка кадра."""
@@ -81,15 +124,16 @@ class PyQtGraphCanvas(QWidget):
 			self.draw_fill(self.frame["fill"])
 
 	def draw_points(self, points):
-		"""Отрисовка точек."""
 		self.logger.debug(f"Отрисовка {len(points)} точек с размером {self.points_size}")
 		self.logger.debug(f"Форма массива точек: {points.shape}")
-		self.logger.debug(f"Цвет RGB: {self.rgb_color}")
+		self.logger.debug(f"Цвет: {self.rgb_color}")
 		x = points[:, 0]
 		y = points[:, 1]
-		pen = mkPen(color=self.rgb_color, width=0)
+		pen = mkPen(color=self.rgb_color, width=0)  # Белый цвет для теста
 		brush = mkBrush(color=self.rgb_color)
 		self.plot_item.plot(x, y, pen=None, symbol='o', symbolSize=self.points_size, symbolPen=pen, symbolBrush=brush)
+		self.logger.debug("Отрисовка завершена")
+
 
 	def draw_lines(self, lines):
 		self.logger.debug("Отрисовка линий")

@@ -25,7 +25,7 @@ class AnimationManager:
         }
 
     def get_frame(self):
-        self.logger.debug("Чтение кадра")
+        self.logger.debug("Получение кадра")
         return self.frame
 
     def set_points_amount(self, value):

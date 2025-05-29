@@ -15,7 +15,7 @@ class MainApplication:
         self.app = QApplication(sys.argv)
 
         # Загрузга модулей
-        self.config_manager = ConfigManager("config.ini", "DEBUG")
+        self.config_manager = ConfigManager("config.ini", "INFO")
         self.ui = MainUI(self.config_manager, "DEBUG")
         self.animation_manager = AnimationManager(self.config_manager, "DEBUG")
 
