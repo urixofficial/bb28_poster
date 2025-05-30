@@ -1,3 +1,21 @@
+from loguru import logger
+import sys
+
+
+def set_logger():
+	"""Настройка логгера"""
+	logger.remove()
+	log_format = ("<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
+	              "<level>{level: <8}</level> | "
+	              "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> | "
+	              "<level>{message}</level>")
+	logger.add(
+		sys.stderr,
+		format=log_format,
+		filter=lambda record: record["extra"].get("module_level", 10) <= record["level"].no
+	)
+
+
 def hsv_to_rgb(h, s, v):
 	"""
 	Convert HSV color to RGB color.

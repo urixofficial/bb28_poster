@@ -106,50 +106,27 @@ class AnimationManager:
         # Обновляем позиции точек (кроме угловых)
         self.frame["points"][4:] += self.frame["velocities"][4:] * self.animation_speed
 
-        # Ограничиваем точки рамками холста
-        for i in range(4, len(self.frame["points"])):
-            # Точки на верхней и нижней сторонах (индексы 4, 5, 6, 7)
-            if i in [4, 5, 6, 7]:
-                # Ограничение по X
-                if self.frame["points"][i][0] < 0:
-                    self.frame["points"][i][0] = -self.frame["points"][i][0]
-                    self.frame["velocities"][i][0] = -self.frame["velocities"][i][0]
-                elif self.frame["points"][i][0] > self.frame_width:
-                    self.frame["points"][i][0] = 2 * self.frame_width - self.frame["points"][i][0]
-                    self.frame["velocities"][i][0] = -self.frame["velocities"][i][0]
-                # Фиксируем Y
-                if i in [4, 5]:
-                    self.frame["points"][i][1] = self.frame_height  # Верхняя сторона
-                else:
-                    self.frame["points"][i][1] = 0  # Нижняя сторона
-            # Точки на левой и правой сторонах (индексы 8, 9, 10, 11)
-            elif i in [8, 9, 10, 11]:
-                # Ограничение по Y
-                if self.frame["points"][i][1] < 0:
-                    self.frame["points"][i][1] = -self.frame["points"][i][1]
-                    self.frame["velocities"][i][1] = -self.frame["velocities"][i][1]
-                elif self.frame["points"][i][1] > self.frame_height:
-                    self.frame["points"][i][1] = 2 * self.frame_height - self.frame["points"][i][1]
-                    self.frame["velocities"][i][1] = -self.frame["velocities"][i][1]
-                # Фиксируем X
-                if i in [8, 9]:
-                    self.frame["points"][i][0] = 0  # Левая сторона
-                else:
-                    self.frame["points"][i][0] = self.frame_width  # Правая сторона
-            # Остальные точки (свободное движение)
-            else:
-                if self.frame["points"][i][0] < 0:
-                    self.frame["points"][i][0] = -self.frame["points"][i][0]
-                    self.frame["velocities"][i][0] = -self.frame["velocities"][i][0]
-                elif self.frame["points"][i][0] > self.frame_width:
-                    self.frame["points"][i][0] = 2 * self.frame_width - self.frame["points"][i][0]
-                    self.frame["velocities"][i][0] = -self.frame["velocities"][i][0]
-                if self.frame["points"][i][1] < 0:
-                    self.frame["points"][i][1] = -self.frame["points"][i][1]
-                    self.frame["velocities"][i][1] = -self.frame["velocities"][i][1]
-                elif self.frame["points"][i][1] > self.frame_height:
-                    self.frame["points"][i][1] = 2 * self.frame_height - self.frame["points"][i][1]
-                    self.frame["velocities"][i][1] = -self.frame["velocities"][i][1]
+        # Ограничение по X для всех точек
+        mask_x_low = self.frame["points"][4:, 0] < 0
+        mask_x_high = self.frame["points"][4:, 0] > self.frame_width
+        self.frame["points"][4:][mask_x_low, 0] = -self.frame["points"][4:][mask_x_low, 0]
+        self.frame["velocities"][4:][mask_x_low, 0] = -self.frame["velocities"][4:][mask_x_low, 0]
+        self.frame["points"][4:][mask_x_high, 0] = 2 * self.frame_width - self.frame["points"][4:][mask_x_high, 0]
+        self.frame["velocities"][4:][mask_x_high, 0] = -self.frame["velocities"][4:][mask_x_high, 0]
+
+        # Ограничение по Y для всех точек
+        mask_y_low = self.frame["points"][4:, 1] < 0
+        mask_y_high = self.frame["points"][4:, 1] > self.frame_height
+        self.frame["points"][4:][mask_y_low, 1] = -self.frame["points"][4:][mask_y_low, 1]
+        self.frame["velocities"][4:][mask_y_low, 1] = -self.frame["velocities"][4:][mask_y_low, 1]
+        self.frame["points"][4:][mask_y_high, 1] = 2 * self.frame_height - self.frame["points"][4:][mask_y_high, 1]
+        self.frame["velocities"][4:][mask_y_high, 1] = -self.frame["velocities"][4:][mask_y_high, 1]
+
+        # Фиксация точек на сторонах
+        self.frame["points"][4:6, 1] = self.frame_height  # Верхняя сторона
+        self.frame["points"][6:8, 1] = 0  # Нижняя сторона
+        self.frame["points"][8:10, 0] = 0  # Левая сторона
+        self.frame["points"][10:12, 0] = self.frame_width  # Правая сторона
 
         # Пересчитываем линии с учетом новых позиций точек
         lines = []

@@ -6,11 +6,12 @@ from modules.config_manager import ConfigManager
 from modules.animation_manager import AnimationManager
 from modules.render_manager import RenderManager
 from loguru import logger
+from modules.utils import set_logger
 
 class MainApplication:
     def __init__(self, log_level):
         """Инициализация приложения"""
-        self.set_logger()
+        set_logger()
         numeric_log_level = logger.level(log_level).no if isinstance(log_level, str) else log_level
         self.logger = logger.bind(module_level=numeric_log_level)
         logger.debug("Инициализация приложения")
@@ -29,21 +30,6 @@ class MainApplication:
         self.is_animating = False
 
         self.set_signals()
-
-
-    @staticmethod
-    def set_logger():
-        """Настройка логгера"""
-        logger.remove()
-        log_format = ("<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
-                      "<level>{level: <8}</level> | "
-                      "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> | "
-                      "<level>{message}</level>")
-        logger.add(
-            sys.stderr,
-            format=log_format,
-            filter=lambda record: record["extra"].get("module_level", 10) <= record["level"].no
-        )
 
     def set_signals(self):
         """Подключение сигналов"""

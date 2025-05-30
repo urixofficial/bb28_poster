@@ -58,7 +58,7 @@ class RenderManager():
 		self.plot_item.setMouseEnabled(x=False, y=False)
 
 		# Отключаем автоматическое изменение диапазона
-		self.plot_item.enableAutoRange(x=True, y=True)
+		self.plot_item.enableAutoRange(x=False, y=False)
 
 		# Добавляем виджет в layout
 		layout = QVBoxLayout()
