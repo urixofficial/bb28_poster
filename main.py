@@ -31,7 +31,7 @@ class MainApplication:
 
         # Словарь для таймеров дебаунсинга
         self.debounce_timers = {}
-        self.debounce_delay = 50  # Задержка дебаунсинга в миллисекундах
+        self.debounce_delay = 10  # Задержка дебаунсинга в миллисекундах
 
         self.set_signals()
 
