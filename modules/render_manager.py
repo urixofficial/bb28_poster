@@ -67,10 +67,10 @@ class RenderManager:
         # Отрисовка элементов
         if self.points_check and "points" in self.frame:
             self.draw_points(self.frame["points"])
-        if self.lines_check and "lines" in self.frame:
-            self.draw_lines(self.frame["lines"])
-        if self.fill_check and "fill" in self.frame:
-            self.draw_fill(self.frame["fill"])
+        if self.lines_check and "triangles" in self.frame:
+            self.draw_lines(self.frame["triangles"])
+        if self.fill_check and "triangles" in self.frame:
+            self.draw_fill(self.frame["triangles"])
 
         # Преобразование Pygame Surface в QImage для отображения в PySide6
         pygame_image = pygame.image.tostring(self.screen, "RGB")
@@ -88,24 +88,35 @@ class RenderManager:
             except (IndexError, TypeError) as e:
                 self.logger.error(f"Ошибка при отрисовке точки {point}: {e}")
 
-    def draw_lines(self, lines):
+    def draw_lines(self, triangles):
         """Отрисовка линий."""
-        self.logger.debug(f"Отрисовка {len(lines)} линий с толщиной {self.lines_width}")
-        if not lines:
+        self.logger.debug(f"Отрисовка линий с толщиной {self.lines_width}")
+        if not triangles:
             self.logger.debug("Нет линий для отрисовки")
             return
-        for line in lines:
-            try:
-                start_pos = (int(line[0]), int(line[1]))
-                end_pos = (int(line[2]), int(line[3]))
-                pygame.draw.line(self.screen, self.rgb_color, start_pos, end_pos, self.lines_width)
-            except (IndexError, TypeError) as e:
-                self.logger.error(f"Ошибка при отрисовке линии {line}: {e}")
 
-    def draw_fill(self, lines):
-        """Отрисовка заливки (заглушка, так как не реализована в оригинале)."""
+        for simplex in triangles.simplices:
+            try:
+                # Получаем точки треугольника по индексам из simplex
+                p1 = triangles.points[simplex[0]]
+                p2 = triangles.points[simplex[1]]
+                p3 = triangles.points[simplex[2]]
+
+                # Отрисовка линий между вершинами треугольника
+                pygame.draw.line(self.screen, self.rgb_color, (int(p1[0]), int(p1[1])), (int(p2[0]), int(p2[1])),
+                                 self.lines_width)
+                pygame.draw.line(self.screen, self.rgb_color, (int(p2[0]), int(p2[1])), (int(p3[0]), int(p3[1])),
+                                 self.lines_width)
+                pygame.draw.line(self.screen, self.rgb_color, (int(p3[0]), int(p3[1])), (int(p1[0]), int(p1[1])),
+                                 self.lines_width)
+            except (IndexError, TypeError) as e:
+                self.logger.error(f"Ошибка при отрисовке треугольника {simplex}: {e}")
+
+    def draw_fill(self, triangles):
+        """Отрисовка заливки треугольников из триангуляции Делоне."""
         self.logger.debug("Отрисовка заливки")
-        # TODO: Реализовать заливку, если нужно (например, с использованием pygame.draw.polygon)
+
+
 
     def save_image(self):
         """Сохранение изображения."""

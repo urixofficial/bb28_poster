@@ -17,6 +17,7 @@ class AnimationManager:
         self.transition_speed = self.config.get_int("AnimationParams", "transition_speed_default")
         self.min_points_speed = self.config.get_int("AnimationParams", "min_points_speed_default")  # Default min speed
         self.max_points_speed = self.config.get_int("AnimationParams", "max_points_speed_default")  # Default max speed
+
         self.init_frame()
 
     def init_frame(self):
@@ -53,16 +54,11 @@ class AnimationManager:
             velocities[i][0] = 0  # Нет движения по X
             velocities[i][1] = np.random.uniform(self.min_points_speed, self.max_points_speed, 1).astype(np.int64) * np.random.choice([-1, 1])
 
-        # Генерация линий с использованием триангуляции Делоне
-        lines = []
+        # Генерация треугольников
+        triangles = []
         if len(points) >= 3:  # Для триангуляции нужно минимум 3 точки
             try:
-                tri = Delaunay(points)
-                for simplex in tri.simplices:
-                    p1, p2, p3 = points[simplex]
-                    lines.append([p1[0], p1[1], p2[0], p2[1]])  # p1 -> p2
-                    lines.append([p2[0], p2[1], p3[0], p3[1]])  # p2 -> p3
-                    lines.append([p3[0], p3[1], p1[0], p1[1]])  # p3 -> p1
+                triangles = Delaunay(points)
             except Exception as e:
                 self.logger.error(f"Ошибка при выполнении триангуляции: {e}")
         else:
@@ -70,8 +66,7 @@ class AnimationManager:
 
         self.frame = {
             "points": points,
-            "lines": lines,
-            "fill": [],
+            "triangles": triangles,
             "velocities": velocities
         }
 
@@ -117,7 +112,7 @@ class AnimationManager:
 
         self._update_points()
 
-        self._update_lines()
+        self._update_triangles()
 
     def _update_points(self):
         """Обновление положения точек"""
@@ -147,20 +142,15 @@ class AnimationManager:
         self.frame["points"][8:10, 0] = 0  # Левая сторона
         self.frame["points"][10:12, 0] = self.frame_width  # Правая сторона
 
-    def _update_lines(self):
+    def _update_triangles(self):
         """Обновление положения линий"""
-        lines = []
+        triangles = []
         if len(self.frame["points"]) >= 3:
             try:
-                tri = Delaunay(self.frame["points"])
-                for simplex in tri.simplices:
-                    p1, p2, p3 = self.frame["points"][simplex]
-                    lines.append([p1[0], p1[1], p2[0], p2[1]])
-                    lines.append([p2[0], p2[1], p3[0], p3[1]])
-                    lines.append([p3[0], p3[1], p1[0], p1[1]])
+                triangles = Delaunay(self.frame["points"])
             except Exception as e:
                 self.logger.error(f"Ошибка при выполнении триангуляции: {e}")
-        self.frame["lines"] = lines
+        self.frame["triangles"] = triangles
 
     def get_frame(self):
         self.logger.debug("Получение кадра")
