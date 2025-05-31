@@ -1,7 +1,6 @@
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QGroupBox, QSlider, QCheckBox, \
     QLabel, QPushButton, QSpinBox, QSizePolicy
 from PySide6.QtCore import Qt
-from pyqtgraph import PlotWidget
 from loguru import logger
 
 class MainUI(QWidget):
