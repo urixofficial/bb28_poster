@@ -69,15 +69,6 @@ class MainApplication:
             logger.error(f"Ошибка при подключении сигналов: {e}")
             raise
 
-    def update_slider(self, key, value, callback):
-        """Обновляет значение слайдера в кэше и вызывает callback, если значение изменилось."""
-        if self.slider_values[key] != value:
-            self.slider_values[key] = value
-            callback(value)
-            if not self.is_animating:
-                frame = self.animation_manager.get_frame()
-                self.render_manager.render_frame(frame)
-
     def generate_frame(self):
         """Генерация кадра"""
         self.logger.info("Запуск генерации кадра")
@@ -100,12 +91,12 @@ class MainApplication:
             interval = 1000 // fps  # Интервал в миллисекундах
             self.animation_timer.start(interval)
             self.is_animating = True
-            self.ui.start_animation_btn.setText("Остановка анимации")
+            self.ui.start_animation_btn.setText("Стоп анимации")
         else:
             # Останавливаем анимацию
             self.animation_timer.stop()
             self.is_animating = False
-            self.ui.start_animation_btn.setText("Запуск анимации")
+            self.ui.start_animation_btn.setText("Старт анимации")
 
     def update_animation(self):
         """Обновление анимации с учетом текущих значений слайдеров"""

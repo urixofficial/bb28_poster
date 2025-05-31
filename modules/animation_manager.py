@@ -23,21 +23,13 @@ class AnimationManager:
         self.logger.debug("Инициализация кадра")
 
         # Генерация 4 статичных точек в углах
-        corner_points = np.array([
-            [0, 0],  # Левый нижний угол
-            [self.frame_width, 0],  # Правый нижний угол
-            [0, self.frame_height],  # Левый верхний угол
-            [self.frame_width, self.frame_height]  # Правый верхний угол
-        ])
-
-        # Генерация случайных точек внутри холста
-        random_points = np.array([
-            [random.randint(0, self.frame_width), random.randint(0, self.frame_height)]
-            for _ in range(self.points_amount)
-        ])
+        corner_points = self._generate_corner_points()
 
         # Генерация 8 точек на сторонах (по 2 на каждую сторону)
         side_points = self._generate_side_points()
+
+        # Генерация случайных точек внутри холста
+        random_points = self._generate_random_points()
 
         # Объединяем все точки
         points = np.concatenate([corner_points, side_points, random_points])
@@ -83,6 +75,15 @@ class AnimationManager:
             "velocities": velocities
         }
 
+    def _generate_corner_points(self):
+        corner_points = np.array([
+            [0, 0],  # Левый нижний угол
+            [self.frame_width, 0],  # Правый нижний угол
+            [0, self.frame_height],  # Левый верхний угол
+            [self.frame_width, self.frame_height]  # Правый верхний угол
+        ])
+        return corner_points
+
     def _generate_side_points(self):
         """Генерация 8 точек на сторонах холста (по 2 на каждую сторону)."""
         side_points = []
@@ -104,8 +105,23 @@ class AnimationManager:
             side_points.append([self.frame_width, y])
         return np.array(side_points)
 
+    def _generate_random_points(self):
+        random_points = np.array([
+            [random.randint(0, self.frame_width), random.randint(0, self.frame_height)]
+            for _ in range(self.points_amount)
+        ])
+        return random_points
+
     def update_frame(self):
         self.logger.debug("Обновление кадра для анимации")
+
+        self._update_points()
+
+        self._update_lines()
+
+    def _update_points(self):
+        """Обновление положения точек"""
+
         # Обновляем позиции точек (кроме угловых)
         self.frame["points"][4:] += self.frame["velocities"][4:] * self.animation_speed
 
@@ -131,7 +147,8 @@ class AnimationManager:
         self.frame["points"][8:10, 0] = 0  # Левая сторона
         self.frame["points"][10:12, 0] = self.frame_width  # Правая сторона
 
-        # Пересчитываем линии с учетом новых позиций точек
+    def _update_lines(self):
+        """Обновление положения линий"""
         lines = []
         if len(self.frame["points"]) >= 3:
             try:
