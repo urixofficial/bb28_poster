@@ -281,10 +281,10 @@ class MainUI(QWidget):
         actions_group = QGroupBox("Действия")
         actions_layout = QGridLayout()
 
-        self.generate_frame_btn = QPushButton("Сгенерировать кадр")
-        self.export_frame_btn = QPushButton("Экспортировать кадр")
-        self.start_animation_btn = QPushButton("Запустить анимацию")
-        self.export_animation_btn = QPushButton("Экспортировать анимацию")
+        self.generate_frame_btn = QPushButton("Генерация кадра")
+        self.export_frame_btn = QPushButton("Экспорт кадра")
+        self.start_animation_btn = QPushButton("Старт анимации")
+        self.export_animation_btn = QPushButton("Экспорт анимации")
 
         actions_layout.addWidget(self.generate_frame_btn, 0, 0)
         actions_layout.addWidget(self.export_frame_btn, 0, 1)
