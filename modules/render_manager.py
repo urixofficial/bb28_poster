@@ -4,7 +4,8 @@ from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtCore import Qt, QSize
 from modules.utils import hsv_to_rgb
 from loguru import logger
-
+import random
+import numpy as np
 
 class RenderManager:
     def __init__(self, config_manager, canvas, log_level="INFO"):
@@ -41,6 +42,7 @@ class RenderManager:
         self.frame_width = self.config.get_int("ImageParams", "width_default")
         self.frame_height = self.config.get_int("ImageParams", "height_default")
         self.frame = None
+        self.triangle_brightness = {}  # Словарь для хранения яркости треугольников
 
         # Инициализация Pygame
         pygame.init()
@@ -60,6 +62,10 @@ class RenderManager:
             self.logger.warning("Получен пустой кадр")
             return
         self.frame = frame
+
+        # Очистка словаря яркости при новом кадре, чтобы синхронизироваться с init_frame
+        if not self.triangle_brightness:
+            self.triangle_brightness.clear()
 
         # Очистка поверхности
         self.screen.fill(self.rgb_bg_color)
@@ -115,8 +121,51 @@ class RenderManager:
     def draw_fill(self, triangles):
         """Отрисовка заливки треугольников из триангуляции Делоне."""
         self.logger.debug("Отрисовка заливки")
+        if not triangles:
+            self.logger.debug("Нет треугольников для заливки")
+            return
 
+        for simplex in triangles.simplices:
+            try:
+                # Получаем точки треугольника
+                p1 = triangles.points[simplex[0]]
+                p2 = triangles.points[simplex[1]]
+                p3 = triangles.points[simplex[2]]
 
+                # Создаем ключ для треугольника на основе индексов вершин
+                triangle_key = tuple(sorted(simplex))
+
+                # Получаем яркость для треугольника
+                if triangle_key not in self.triangle_brightness:
+                    # Генерируем новую яркость с учетом разброса
+                    base_brightness = self.hsv_color["v"]
+                    variation = self.fill_variation
+                    brightness = random.uniform(
+                        max(0, base_brightness - variation),
+                        min(100, base_brightness + variation)
+                    )
+                    self.triangle_brightness[triangle_key] = brightness
+                else:
+                    # Используем сохраненную яркость
+                    brightness = self.triangle_brightness[triangle_key]
+
+                # Преобразуем цвет с учетом оттенка основного цвета
+                fill_color = hsv_to_rgb(
+                    self.hsv_color["h"],
+                    self.hsv_color["s"],
+                    brightness
+                )
+
+                # Отрисовка треугольника
+                pygame.draw.polygon(
+                    self.screen,
+                    fill_color,
+                    [(int(p1[0]), int(p1[1])),
+                     (int(p2[0]), int(p2[1])),
+                     (int(p3[0]), int(p3[1]))]
+                )
+            except (IndexError, TypeError) as e:
+                self.logger.error(f"Ошибка при заливке треугольника {simplex}: {e}")
 
     def save_image(self):
         """Сохранение изображения."""
@@ -151,6 +200,14 @@ class RenderManager:
     def set_fill_variation(self, value):
         self.logger.debug(f"Установка разброса яркости заливки: {value}")
         self.fill_variation = value
+        # Перегенерируем яркость для всех треугольников при изменении разброса
+        for triangle_key in self.triangle_brightness:
+            base_brightness = self.hsv_color["v"]
+            variation = self.fill_variation
+            self.triangle_brightness[triangle_key] = random.uniform(
+                max(0, base_brightness - variation),
+                min(100, base_brightness + variation)
+            )
         self.render_frame(self.frame)
 
     def set_hue(self, value):
@@ -169,6 +226,14 @@ class RenderManager:
         self.logger.debug(f"Установка яркости основного цвета: {value}")
         self.hsv_color["v"] = value
         self.rgb_color = hsv_to_rgb(self.hsv_color["h"], self.hsv_color["s"], self.hsv_color["v"])
+        # Обновляем яркость треугольников с учетом нового базового значения
+        for triangle_key in self.triangle_brightness:
+            base_brightness = self.hsv_color["v"]
+            variation = self.fill_variation
+            self.triangle_brightness[triangle_key] = random.uniform(
+                max(0, base_brightness - variation),
+                min(100, base_brightness + variation)
+            )
         self.render_frame(self.frame)
 
     def set_bg_hue(self, value):
@@ -193,6 +258,14 @@ class RenderManager:
         self.logger.debug(f"Установка основного цвета: {h=} {s=} {v=}")
         self.hsv_color = {"h": h, "s": s, "v": v}
         self.rgb_color = hsv_to_rgb(h, s, v)
+        # Обновляем яркость треугольников с учетом нового базового значения
+        for triangle_key in self.triangle_brightness:
+            base_brightness = self.hsv_color["v"]
+            variation = self.fill_variation
+            self.triangle_brightness[triangle_key] = random.uniform(
+                max(0, base_brightness - variation),
+                min(100, base_brightness + variation)
+            )
         self.render_frame(self.frame)
 
     def set_bg_color(self, h, s, v):
