@@ -15,8 +15,8 @@ class AnimationManager:
         self.points_amount = self.config.get_int("GenerationParams", "points_amount_default")
         self.animation_speed = self.config.get_int("AnimationParams", "animation_speed_default")
         self.transition_speed = self.config.get_int("AnimationParams", "transition_speed_default")
-        self.min_points_speed = self.config.get_int("AnimationParams", "min_points_speed_default")  # Default min speed
-        self.max_points_speed = self.config.get_int("AnimationParams", "max_points_speed_default")  # Default max speed
+        self.min_points_speed = self.config.get_int("AnimationParams", "min_points_speed_default")
+        self.max_points_speed = self.config.get_int("AnimationParams", "max_points_speed_default")
 
         self.init_frame()
 
@@ -39,7 +39,7 @@ class AnimationManager:
         velocities = np.zeros((len(points), 2), dtype=np.int64)
 
         # Скорости для случайных точек (свободное движение)
-        for i in range(4 + 8, len(points)):  # Начиная с индекса 12 (после угловых и боковых точек)
+        for i in range(12, len(points)):  # Начиная с индекса 12 (после угловых и боковых точек)
             speed = np.random.uniform(self.min_points_speed, self.max_points_speed)
             angle = np.random.uniform(0, 2 * np.pi)
             velocities[i] = np.array([speed * np.cos(angle), speed * np.sin(angle)]).astype(np.int64)
@@ -65,7 +65,6 @@ class AnimationManager:
             self.logger.warning("Недостаточно точек для триангуляции (требуется минимум 3 точки)")
 
         self.frame = {
-            "points": points,
             "triangles": triangles,
             "velocities": velocities
         }
@@ -116,45 +115,44 @@ class AnimationManager:
 
     def _update_points(self):
         """Обновление положения точек"""
-
         # Обновляем позиции точек (кроме угловых)
-        self.frame["points"][4:] += self.frame["velocities"][4:] * self.animation_speed
+        self.frame["triangles"].points[4:] += self.frame["velocities"][4:] * self.animation_speed
 
         # Ограничение по X для всех точек
-        mask_x_low = self.frame["points"][4:, 0] < 0
-        mask_x_high = self.frame["points"][4:, 0] > self.frame_width
-        self.frame["points"][4:][mask_x_low, 0] = -self.frame["points"][4:][mask_x_low, 0]
+        mask_x_low = self.frame["triangles"].points[4:, 0] < 0
+        mask_x_high = self.frame["triangles"].points[4:, 0] > self.frame_width
+        self.frame["triangles"].points[4:][mask_x_low, 0] = -self.frame["triangles"].points[4:][mask_x_low, 0]
         self.frame["velocities"][4:][mask_x_low, 0] = -self.frame["velocities"][4:][mask_x_low, 0]
-        self.frame["points"][4:][mask_x_high, 0] = 2 * self.frame_width - self.frame["points"][4:][mask_x_high, 0]
+        self.frame["triangles"].points[4:][mask_x_high, 0] = 2 * self.frame_width - self.frame["triangles"].points[4:][mask_x_high, 0]
         self.frame["velocities"][4:][mask_x_high, 0] = -self.frame["velocities"][4:][mask_x_high, 0]
 
         # Ограничение по Y для всех точек
-        mask_y_low = self.frame["points"][4:, 1] < 0
-        mask_y_high = self.frame["points"][4:, 1] > self.frame_height
-        self.frame["points"][4:][mask_y_low, 1] = -self.frame["points"][4:][mask_y_low, 1]
+        mask_y_low = self.frame["triangles"].points[4:, 1] < 0
+        mask_y_high = self.frame["triangles"].points[4:, 1] > self.frame_height
+        self.frame["triangles"].points[4:][mask_y_low, 1] = -self.frame["triangles"].points[4:][mask_y_low, 1]
         self.frame["velocities"][4:][mask_y_low, 1] = -self.frame["velocities"][4:][mask_y_low, 1]
-        self.frame["points"][4:][mask_y_high, 1] = 2 * self.frame_height - self.frame["points"][4:][mask_y_high, 1]
+        self.frame["triangles"].points[4:][mask_y_high, 1] = 2 * self.frame_height - self.frame["triangles"].points[4:][mask_y_high, 1]
         self.frame["velocities"][4:][mask_y_high, 1] = -self.frame["velocities"][4:][mask_y_high, 1]
 
         # Фиксация точек на сторонах
-        self.frame["points"][4:6, 1] = self.frame_height  # Верхняя сторона
-        self.frame["points"][6:8, 1] = 0  # Нижняя сторона
-        self.frame["points"][8:10, 0] = 0  # Левая сторона
-        self.frame["points"][10:12, 0] = self.frame_width  # Правая сторона
+        self.frame["triangles"].points[4:6, 1] = self.frame_height  # Верхняя сторона
+        self.frame["triangles"].points[6:8, 1] = 0  # Нижняя сторона
+        self.frame["triangles"].points[8:10, 0] = 0  # Левая сторона
+        self.frame["triangles"].points[10:12, 0] = self.frame_width  # Правая сторона
 
     def _update_triangles(self):
-        """Обновление положения линий"""
+        """Обновление триангуляции"""
         triangles = []
-        if len(self.frame["points"]) >= 3:
+        if len(self.frame["triangles"].points) >= 3:
             try:
-                triangles = Delaunay(self.frame["points"])
+                triangles = Delaunay(self.frame["triangles"].points)
             except Exception as e:
                 self.logger.error(f"Ошибка при выполнении триангуляции: {e}")
         self.frame["triangles"] = triangles
 
     def get_frame(self):
         self.logger.debug("Получение кадра")
-        return self.frame
+        return self.frame["triangles"]
 
     def set_points_amount(self, value):
         self.logger.debug(f"Установка количества точек: {value}")
@@ -199,8 +197,8 @@ class AnimationManager:
         self.logger.debug(f"Установка частоты кадров: {value}")
         try:
             value = int(value)
-            min_value = self.config.get_int("AnimationParams", "fps_min")
-            max_value = self.config.get_int("AnimationParams", "fps_max")
+            min_value = self.config.get_int("ImageParams", "fps_min")
+            max_value = self.config.get_int("ImageParams", "fps_max")
             if not (min_value <= value <= max_value):
                 raise ValueError(f"Частота кадров должна быть в диапазоне [{min_value}, {max_value}]")
             self.fps = value
@@ -212,8 +210,8 @@ class AnimationManager:
         self.logger.debug(f"Установка длительности: {value}")
         try:
             value = int(value)
-            min_value = self.config.get_int("AnimationParams", "duration_min")
-            max_value = self.config.get_int("AnimationParams", "duration_max")
+            min_value = self.config.get_int("ImageParams", "duration_min")
+            max_value = self.config.get_int("ImageParams", "duration_max")
             if not (min_value <= value <= max_value):
                 raise ValueError(f"Длительность должна быть в диапазоне [{min_value}, {max_value}]")
             self.duration = value

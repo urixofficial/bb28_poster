@@ -73,8 +73,8 @@ class MainApplication:
         """Генерация кадра"""
         self.logger.info("Запуск генерации кадра")
         self.animation_manager.init_frame()
-        frame = self.animation_manager.get_frame()
-        self.render_manager.render_frame(frame)
+        triangles = self.animation_manager.get_frame()
+        self.render_manager.render_frame(triangles)
 
     def export_frame(self):
         self.logger.info("Экспорт кадра")
@@ -104,8 +104,8 @@ class MainApplication:
 
         # Обновляем кадр анимации
         self.animation_manager.update_frame()
-        frame = self.animation_manager.get_frame()
-        self.render_manager.render_frame(frame)
+        triangles = self.animation_manager.get_frame()
+        self.render_manager.render_frame(triangles)
 
     def export_animation(self):
         self.logger.debug("Экспорт анимации")
