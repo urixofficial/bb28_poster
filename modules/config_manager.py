@@ -1,5 +1,6 @@
 import configparser
 import numpy as np
+import ast
 from loguru import logger
 
 class ConfigManager:
@@ -52,14 +53,16 @@ class ConfigManager:
         self.logger.debug("Чтение пустых областей из конфигурации")
         try:
             areas = []
-            area_count = self.config.getint("EmptyAreas", "area_count")
-            for i in range(1, area_count + 1):
-                area_key = f"area_{i}"
-                area_str = self.config.get("EmptyAreas", area_key)
-                # Парсим строку в список координат
-                area_points = eval(area_str)  # Безопасность можно улучшить через ast.literal_eval
-                areas.append(np.array(area_points, dtype=np.float64))
+            for key in self.config["EmptyAreas"]:
+                if key.startswith("area_"):
+                    area_str = self.config.get("EmptyAreas", key)
+                    try:
+                        area_points = ast.literal_eval(area_str)
+                        areas.append(np.array(area_points, dtype=np.int32))
+                    except (ValueError, SyntaxError) as e:
+                        self.logger.error(f"Ошибка парсинга области {key}: {e}")
+                        continue
             return areas
-        except (configparser.NoSectionError, configparser.NoOptionError, ValueError) as e:
+        except (configparser.NoSectionError, configparser.NoOptionError) as e:
             self.logger.error(f"Ошибка чтения пустых областей: {e}")
             return []
