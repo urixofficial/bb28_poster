@@ -108,9 +108,15 @@ class MainApplication:
         self.render_manager.render_frame(triangles)
 
     def export_animation(self):
-        self.logger.debug("Экспорт анимации")
-        # Логика экспорта анимации
-        pass
+        self.logger.info("Запуск экспорта анимации")
+        try:
+            # Получаем параметры из UI
+            fps = self.ui.fps_input.value()
+            duration = self.ui.duration_input.value()
+            # Вызываем метод экспорта из RenderManager
+            self.render_manager.export_animation(self.animation_manager, fps, duration)
+        except Exception as e:
+            self.logger.error(f"Ошибка при запуске экспорта анимации: {e}")
 
     def run(self):
         self.ui.show()

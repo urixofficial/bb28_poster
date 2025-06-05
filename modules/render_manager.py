@@ -6,6 +6,7 @@ from modules.utils import hsv_to_rgb
 from loguru import logger
 import random
 import numpy as np
+import cv2
 
 class RenderManager:
     def __init__(self, config_manager, canvas, log_level="INFO"):
@@ -187,6 +188,56 @@ class RenderManager:
                 self.logger.debug("Сохранение изображения отменено")
         except Exception as e:
             self.logger.error(f"Ошибка при сохранении изображения: {e}")
+
+    def export_animation(self, animation_manager, fps, duration):
+        """Экспорт анимации в видеофайл."""
+        self.logger.info("Экспорт анимации")
+        try:
+            if fps <= 0 or duration <= 0:
+                self.logger.error("Частота кадров и длительность должны быть больше 0")
+                return
+
+            # Открываем диалоговое окно для выбора пути сохранения
+            file_dialog = QFileDialog(self.canvas)
+            file_dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
+            file_dialog.setNameFilters(["MP4 Video (*.mp4)"])
+            file_dialog.setDefaultSuffix("mp4")
+            file_dialog.setWindowTitle("Сохранить анимацию")
+
+            if not file_dialog.exec():
+                self.logger.debug("Сохранение анимации отменено")
+                return
+
+            file_path = file_dialog.selectedFiles()[0]
+            self.logger.debug(f"Сохранение анимации в {file_path}")
+
+            # Инициализация видеозаписи с OpenCV
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Кодек для MP4
+            video_writer = cv2.VideoWriter(file_path, fourcc, fps, (self.frame_width, self.frame_height))
+
+            # Инициализируем кадр
+            animation_manager.init_frame()
+
+            # Генерация и запись кадров
+            total_frames = int(fps * duration)
+            for frame_idx in range(total_frames):
+                self.logger.debug(f"Генерация кадра {frame_idx + 1}/{total_frames}")
+                animation_manager.update_frame()
+                triangles = animation_manager.get_frame()
+                self.render_frame(triangles)
+
+                # Преобразуем Pygame Surface в массив NumPy для OpenCV
+                pygame_image = pygame.image.tostring(self.screen, "RGB")
+                frame = np.frombuffer(pygame_image, dtype=np.uint8).reshape((self.frame_height, self.frame_width, 3))
+                frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)  # Конвертация RGB в BGR для OpenCV
+                video_writer.write(frame)
+
+            # Освобождаем ресурсы
+            video_writer.release()
+            self.logger.info(f"Анимация успешно сохранена в {file_path}")
+
+        except Exception as e:
+            self.logger.error(f"Ошибка при экспорте анимации: {e}")
 
     def set_points_check(self, flag):
         self.logger.debug(f"Установка флага отображения точек {flag}")
