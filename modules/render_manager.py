@@ -59,14 +59,13 @@ class RenderManager:
     def render_frame(self, triangles):
         """Отрисовка кадра."""
         self.logger.debug("Отрисовка кадра")
-        if not triangles:
-            self.logger.warning("Получен пустой кадр")
+        if not triangles or 'triangles' not in triangles or len(triangles['triangles']) == 0:
+            self.logger.warning("Получен пустой кадр или отсутствуют треугольники")
             return
         self.triangles = triangles
 
-        # Очистка словаря яркости при новом кадре, чтобы синхронизироваться с init_frame
-        if not self.triangle_brightness:
-            self.triangle_brightness.clear()
+        # Очистка словаря яркости при новом кадре
+        self.triangle_brightness.clear()
 
         # Очистка поверхности
         self.screen.fill(self.rgb_bg_color)
@@ -87,8 +86,8 @@ class RenderManager:
 
     def draw_points(self):
         """Отрисовка точек."""
-        self.logger.debug(f"Отрисовка {len(self.triangles.points)} точек с размером {self.points_size}")
-        for point in self.triangles.points:
+        self.logger.debug(f"Отрисовка {len(self.triangles['vertices'])} точек с размером {self.points_size}")
+        for point in self.triangles['vertices']:
             try:
                 x, y = int(point[0]), int(point[1])
                 pygame.draw.circle(self.screen, self.rgb_color, (x, y), self.points_size // 2)
@@ -98,16 +97,16 @@ class RenderManager:
     def draw_lines(self):
         """Отрисовка линий."""
         self.logger.debug(f"Отрисовка линий с толщиной {self.lines_width}")
-        if not self.triangles:
+        if not self.triangles or 'triangles' not in self.triangles:
             self.logger.debug("Нет линий для отрисовки")
             return
 
-        for simplex in self.triangles.simplices:
+        for simplex in self.triangles['triangles']:
             try:
                 # Получаем точки треугольника по индексам из simplex
-                p1 = self.triangles.points[simplex[0]]
-                p2 = self.triangles.points[simplex[1]]
-                p3 = self.triangles.points[simplex[2]]
+                p1 = self.triangles['vertices'][simplex[0]]
+                p2 = self.triangles['vertices'][simplex[1]]
+                p3 = self.triangles['vertices'][simplex[2]]
 
                 # Отрисовка линий между вершинами треугольника
                 pygame.draw.line(self.screen, self.rgb_color, (int(p1[0]), int(p1[1])), (int(p2[0]), int(p2[1])),
@@ -122,16 +121,16 @@ class RenderManager:
     def draw_fill(self):
         """Отрисовка заливки треугольников из триангуляции Делоне."""
         self.logger.debug("Отрисовка заливки")
-        if not self.triangles:
+        if not self.triangles or 'triangles' not in self.triangles:
             self.logger.debug("Нет треугольников для заливки")
             return
 
-        for simplex in self.triangles.simplices:
+        for simplex in self.triangles['triangles']:
             try:
                 # Получаем точки треугольника
-                p1 = self.triangles.points[simplex[0]]
-                p2 = self.triangles.points[simplex[1]]
-                p3 = self.triangles.points[simplex[2]]
+                p1 = self.triangles['vertices'][simplex[0]]
+                p2 = self.triangles['vertices'][simplex[1]]
+                p3 = self.triangles['vertices'][simplex[2]]
 
                 # Создаем ключ для треугольника на основе индексов вершин
                 triangle_key = tuple(sorted(simplex))

@@ -1,6 +1,6 @@
 import random
 import numpy as np
-from scipy.spatial import Delaunay
+import triangle
 from loguru import logger
 
 class AnimationManager:
@@ -18,6 +18,7 @@ class AnimationManager:
         self.min_points_speed = self.config.get_int("AnimationParams", "min_points_speed_default")
         self.max_points_speed = self.config.get_int("AnimationParams", "max_points_speed_default")
 
+        self.empty_areas = self.config.get_empty_areas()  # Получаем пустые области из конфига
         self.init_frame()
 
     def init_frame(self):
@@ -33,40 +34,40 @@ class AnimationManager:
         random_points = self._generate_random_points()
 
         # Объединяем все точки
-        points = np.concatenate([corner_points, side_points, random_points])
+        points = np.concatenate([corner_points, side_points, random_points]).astype(np.float64)
 
         # Генерация скоростей
-        velocities = np.zeros((len(points), 2), dtype=np.int64)
+        velocities = np.zeros((len(points), 2), dtype=np.float64)
 
         # Скорости для случайных точек (свободное движение)
         for i in range(12, len(points)):  # Начиная с индекса 12 (после угловых и боковых точек)
             speed = np.random.uniform(self.min_points_speed, self.max_points_speed)
             angle = np.random.uniform(0, 2 * np.pi)
-            velocities[i] = np.array([speed * np.cos(angle), speed * np.sin(angle)]).astype(np.int64)
+            velocities[i] = np.array([speed * np.cos(angle), speed * np.sin(angle)])
 
         # Скорости для точек на сторонах (движение только вдоль одной оси)
         # Точки на верхней и нижней сторонах (индексы 4, 5, 6, 7) движутся по X
         for i in [4, 5, 6, 7]:
-            velocities[i][0] = np.random.uniform(self.min_points_speed, self.max_points_speed, 1).astype(np.int64) * np.random.choice([-1, 1])
+            velocities[i][0] = np.random.uniform(self.min_points_speed, self.max_points_speed) * np.random.choice([-1, 1])
             velocities[i][1] = 0  # Нет движения по Y
         # Точки на левой и правой сторонах (индексы 8, 9, 10, 11) движутся по Y
         for i in [8, 9, 10, 11]:
             velocities[i][0] = 0  # Нет движения по X
-            velocities[i][1] = np.random.uniform(self.min_points_speed, self.max_points_speed, 1).astype(np.int64) * np.random.choice([-1, 1])
+            velocities[i][1] = np.random.uniform(self.min_points_speed, self.max_points_speed) * np.random.choice([-1, 1])
 
-        # Генерация треугольников
-        triangles = []
-        if len(points) >= 3:  # Для триангуляции нужно минимум 3 точки
-            try:
-                triangles = Delaunay(points)
-            except Exception as e:
-                self.logger.error(f"Ошибка при выполнении триангуляции: {e}")
-        else:
-            self.logger.warning("Недостаточно точек для триангуляции (требуется минимум 3 точки)")
+        # Подготовка данных для триангуляции
+        triangles = self._perform_triangulation(points)
+
+        # Проверка, что все точки имеют связи
+        if not self._verify_points_connectivity(points, triangles):
+            self.logger.warning("Обнаружены точки без связей, повторная триангуляция")
+            points, velocities = self._adjust_points_for_connectivity(points, velocities)
+            triangles = self._perform_triangulation(points)
 
         self.frame = {
             "triangles": triangles,
-            "velocities": velocities
+            "velocities": velocities,
+            "points": points
         }
 
     def _generate_corner_points(self):
@@ -100,54 +101,217 @@ class AnimationManager:
         return np.array(side_points)
 
     def _generate_random_points(self):
-        random_points = np.array([
-            [random.randint(0, self.frame_width), random.randint(0, self.frame_height)]
-            for _ in range(self.points_amount)
-        ])
-        return random_points
+        """Генерация случайных точек, избегая пустых областей."""
+        random_points = []
+        for _ in range(self.points_amount):
+            while True:
+                point = [random.randint(0, self.frame_width), random.randint(0, self.frame_height)]
+                if not self._is_point_in_holes(point):
+                    random_points.append(point)
+                    break
+        return np.array(random_points)
+
+    def _is_point_in_holes(self, point):
+        """Проверка, находится ли точка внутри пустых областей."""
+        for area in self.empty_areas:
+            # Проверяем, находится ли точка внутри полигона
+            if self._point_in_polygon(point, area):
+                return True
+        return False
+
+    def _point_in_polygon(self, point, polygon):
+        """Проверка, находится ли точка внутри полигона (Ray Casting алгоритм)."""
+        x, y = point
+        n = len(polygon)
+        inside = False
+        j = n - 1
+        for i in range(n):
+            if ((polygon[i][1] > y) != (polygon[j][1] > y)) and \
+               (x < (polygon[j][0] - polygon[i][0]) * (y - polygon[i][1]) /
+                (polygon[j][1] - polygon[i][1]) + polygon[i][0]):
+                inside = not inside
+            j = i
+        return inside
+
+    def _perform_triangulation(self, points):
+        """Выполнение триангуляции."""
+        self.logger.debug("Выполняем триангуляцию с использованием triangle")
+        try:
+            # Подготовка данных для triangle
+            tri_input = {
+                'vertices': points,
+            }
+
+            # Добавление границ холста как сегментов
+            boundary_segments = [
+                [0, 1], [1, 3], [3, 2], [2, 0]  # Углы холста
+            ]
+            # Добавление сегментов для точек на сторонах
+            boundary_segments.extend([
+                [4, 5],  # Верхняя сторона
+                [6, 7],  # Нижняя сторона
+                [8, 9],  # Левая сторона
+                [10, 11]  # Правая сторона
+            ])
+
+            # Добавление пустых областей как регионы с сегментами
+            holes = []
+            segments = boundary_segments
+            vertex_offset = len(points)
+            if self.empty_areas:
+                for area_idx, area in enumerate(self.empty_areas):
+                    area_points = np.array(area)
+                    n_points = len(area_points)
+                    # Добавляем точки области к вершинам
+                    tri_input['vertices'] = np.vstack([tri_input['vertices'], area_points])
+                    # Добавляем сегменты для области
+                    for i in range(n_points):
+                        segments.append([vertex_offset + i, vertex_offset + (i + 1) % n_points])
+                    # Вычисляем центроид для holes
+                    centroid = np.mean(area_points, axis=0)
+                    holes.append(centroid)
+                    vertex_offset += n_points
+                tri_input['holes'] = np.array(holes)
+
+            tri_input['segments'] = np.array(segments)
+
+            # Выполняем триангуляцию с параметром 'p' для constrained Delaunay
+            if len(points) >= 3:
+                tri = triangle.triangulate(tri_input, 'p')
+                return tri
+            else:
+                self.logger.warning("Недостаточно точек для триангуляции (требуется минимум 3 точки)")
+                return {'vertices': points, 'triangles': np.array([])}
+        except Exception as e:
+            self.logger.error(f"Ошибка при выполнении триангуляции: {e}")
+            return {'vertices': points, 'triangles': np.array([])}
+
+    def _verify_points_connectivity(self, points, triangles):
+        """Проверка, что все точки участвуют в триангуляции."""
+        if 'triangles' not in triangles or len(triangles['triangles']) == 0:
+            return False
+        used_vertices = set(triangles['triangles'].flatten())
+        return all(i in used_vertices for i in range(len(points)))
+
+    def _adjust_points_for_connectivity(self, points, velocities):
+        """Добавление дополнительных точек для обеспечения связности."""
+        self.logger.debug("Добавление точек для обеспечения связности")
+        additional_points = []
+        additional_velocities = []
+        for _ in range(5):  # Добавляем до 5 дополнительных точек
+            point = [random.randint(0, self.frame_width), random.randint(0, self.frame_height)]
+            if not self._is_point_in_holes(point):
+                additional_points.append(point)
+                speed = np.random.uniform(self.min_points_speed, self.max_points_speed)
+                angle = np.random.uniform(0, 2 * np.pi)
+                additional_velocities.append([speed * np.cos(angle), speed * np.sin(angle)])
+        if additional_points:
+            points = np.vstack([points, additional_points])
+            velocities = np.vstack([velocities, additional_velocities])
+        return points, velocities
 
     def update_frame(self):
         self.logger.debug("Обновление кадра для анимации")
-
         self._update_points()
-
         self._update_triangles()
 
     def _update_points(self):
-        """Обновление положения точек"""
-        # Обновляем позиции точек (кроме угловых)
-        self.frame["triangles"].points[4:] += self.frame["velocities"][4:] * self.animation_speed
+        """Обновление положения точек с отталкиванием от пустых областей."""
+        # Предлагаем новые позиции
+        proposed_points = self.frame["points"].copy().astype(np.float64)
+        proposed_points[4:] += self.frame["velocities"][4:] * self.animation_speed
+
+        # Проверяем столкновения с пустыми областями
+        for i in range(4, len(proposed_points)):
+            old_point = self.frame["points"][i]
+            new_point = proposed_points[i]
+            velocity = self.frame["velocities"][i]
+
+            for area in self.empty_areas:
+                if self._is_point_in_holes(new_point):
+                    # Точка попала в пустую область, отталкиваем её
+                    closest_point = self._closest_point_on_polygon(old_point, area)
+                    normal = self._compute_normal(old_point, closest_point)
+                    # Отражаем скорость
+                    self.frame["velocities"][i] = self._reflect_velocity(velocity, normal)
+                    # Корректируем позицию, чтобы точка не пересекала границу
+                    proposed_points[i] = old_point + self.frame["velocities"][i] * self.animation_speed
+
+        # Обновляем позиции
+        self.frame["points"][4:] = proposed_points[4:].astype(np.int64)
 
         # Ограничение по X для всех точек
-        mask_x_low = self.frame["triangles"].points[4:, 0] < 0
-        mask_x_high = self.frame["triangles"].points[4:, 0] > self.frame_width
-        self.frame["triangles"].points[4:][mask_x_low, 0] = -self.frame["triangles"].points[4:][mask_x_low, 0]
+        mask_x_low = self.frame["points"][4:, 0] < 0
+        mask_x_high = self.frame["points"][4:, 0] > self.frame_width
+        self.frame["points"][4:][mask_x_low, 0] = -self.frame["points"][4:][mask_x_low, 0]
         self.frame["velocities"][4:][mask_x_low, 0] = -self.frame["velocities"][4:][mask_x_low, 0]
-        self.frame["triangles"].points[4:][mask_x_high, 0] = 2 * self.frame_width - self.frame["triangles"].points[4:][mask_x_high, 0]
+        self.frame["points"][4:][mask_x_high, 0] = 2 * self.frame_width - self.frame["points"][4:][mask_x_high, 0]
         self.frame["velocities"][4:][mask_x_high, 0] = -self.frame["velocities"][4:][mask_x_high, 0]
 
         # Ограничение по Y для всех точек
-        mask_y_low = self.frame["triangles"].points[4:, 1] < 0
-        mask_y_high = self.frame["triangles"].points[4:, 1] > self.frame_height
-        self.frame["triangles"].points[4:][mask_y_low, 1] = -self.frame["triangles"].points[4:][mask_y_low, 1]
+        mask_y_low = self.frame["points"][4:, 1] < 0
+        mask_y_high = self.frame["points"][4:, 1] > self.frame_height
+        self.frame["points"][4:][mask_y_low, 1] = -self.frame["points"][4:][mask_y_low, 1]
         self.frame["velocities"][4:][mask_y_low, 1] = -self.frame["velocities"][4:][mask_y_low, 1]
-        self.frame["triangles"].points[4:][mask_y_high, 1] = 2 * self.frame_height - self.frame["triangles"].points[4:][mask_y_high, 1]
+        self.frame["points"][4:][mask_y_high, 1] = 2 * self.frame_height - self.frame["points"][4:][mask_y_high, 1]
         self.frame["velocities"][4:][mask_y_high, 1] = -self.frame["velocities"][4:][mask_y_high, 1]
 
         # Фиксация точек на сторонах
-        self.frame["triangles"].points[4:6, 1] = self.frame_height  # Верхняя сторона
-        self.frame["triangles"].points[6:8, 1] = 0  # Нижняя сторона
-        self.frame["triangles"].points[8:10, 0] = 0  # Левая сторона
-        self.frame["triangles"].points[10:12, 0] = self.frame_width  # Правая сторона
+        self.frame["points"][4:6, 1] = self.frame_height  # Верхняя сторона
+        self.frame["points"][6:8, 1] = 0  # Нижняя сторона
+        self.frame["points"][8:10, 0] = 0  # Левая сторона
+        self.frame["points"][10:12, 0] = self.frame_width  # Правая сторона
+
+    def _closest_point_on_polygon(self, point, polygon):
+        """Нахождение ближайшей точки на границе полигона."""
+        min_dist = float('inf')
+        closest_point = None
+        n = len(polygon)
+        for i in range(n):
+            p1 = polygon[i]
+            p2 = polygon[(i + 1) % n]
+            cp = self._closest_point_on_segment(point, p1, p2)
+            dist = np.linalg.norm(point - cp)
+            if dist < min_dist:
+                min_dist = dist
+                closest_point = cp
+        return closest_point
+
+    def _closest_point_on_segment(self, point, p1, p2):
+        """Нахождение ближайшей точки на отрезке."""
+        p1 = np.array(p1)
+        p2 = np.array(p2)
+        point = np.array(point)
+        segment = p2 - p1
+        t = np.dot(point - p1, segment) / np.dot(segment, segment)
+        t = max(0, min(1, t))
+        projection = p1 + t * segment
+        return projection
+
+    def _compute_normal(self, point, boundary_point):
+        """Вычисление нормали от точки к границе."""
+        normal = point - boundary_point
+        norm = np.linalg.norm(normal)
+        if norm > 0:
+            normal /= norm
+        else:
+            normal = np.array([1, 0])  # Запасной вариант
+        return normal
+
+    def _reflect_velocity(self, velocity, normal):
+        """Отражение скорости относительно нормали."""
+        v_dot_n = np.dot(velocity, normal)
+        return velocity - 2 * v_dot_n * normal
 
     def _update_triangles(self):
         """Обновление триангуляции"""
-        triangles = []
-        if len(self.frame["triangles"].points) >= 3:
-            try:
-                triangles = Delaunay(self.frame["triangles"].points)
-            except Exception as e:
-                self.logger.error(f"Ошибка при выполнении триангуляции: {e}")
+        triangles = self._perform_triangulation(self.frame["points"])
+        if not self._verify_points_connectivity(self.frame["points"], triangles):
+            self.logger.warning("Обнаружены точки без связей, повторная триангуляция")
+            points, velocities = self._adjust_points_for_connectivity(self.frame["points"], self.frame["velocities"])
+            self.frame["points"] = points
+            self.frame["velocities"] = velocities
+            triangles = self._perform_triangulation(self.frame["points"])
         self.frame["triangles"] = triangles
 
     def get_frame(self):
@@ -161,11 +325,11 @@ class AnimationManager:
             min_value = self.config.get_int("GenerationParams", "points_amount_min")
             max_value = self.config.get_int("GenerationParams", "points_amount_max")
             if not (min_value <= value <= max_value):
-                raise ValueError(f"Количество точек быть в диапазоне [{min_value}, {max_value}]")
+                raise ValueError(f"Количество точек должно быть в диапазоне [{min_value}, {max_value}]")
             self.points_amount = value
             self.init_frame()
         except (ValueError, TypeError) as e:
-            self.logger.error(f"Некорректное количества точек: {value}, ошибка: {e}")
+            self.logger.error(f"Некорректное количество точек: {value}, ошибка: {e}")
 
     def set_width(self, value):
         self.logger.debug(f"Установка ширины: {value}")
