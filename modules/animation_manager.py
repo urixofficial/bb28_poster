@@ -194,11 +194,11 @@ class AnimationManager:
         return all(i in used_vertices for i in range(len(points)))
 
     def _adjust_points_for_connectivity(self, points, velocities):
-        """Добавление дополнительных точек для обеспечения связности."""
         self.logger.debug("Добавление точек для обеспечения связности")
         additional_points = []
         additional_velocities = []
-        for _ in range(5):  # Добавляем до 5 дополнительных точек
+        max_additional = max(0, self.points_amount + 12 - len(points))  # Ограничиваем добавление
+        for _ in range(min(5, max_additional)):  # Добавляем не более max_additional точек
             point = [random.randint(0, self.frame_width), random.randint(0, self.frame_height)]
             if not self._is_point_in_holes(point):
                 additional_points.append(point)
