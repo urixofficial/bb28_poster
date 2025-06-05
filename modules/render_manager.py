@@ -1,5 +1,5 @@
 import pygame
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QFileDialog
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtCore import Qt, QSize
 from modules.utils import hsv_to_rgb
@@ -168,9 +168,25 @@ class RenderManager:
                 self.logger.error(f"Ошибка при заливке треугольника {simplex}: {e}")
 
     def save_image(self):
-        """Сохранение изображения."""
-        self.logger.debug("Сохранение изображения")
-        pygame.image.save(self.screen, "frame.png")
+        """Сохранение изображения с использованием диалогового окна."""
+        self.logger.debug("Открытие диалогового окна для сохранения изображения")
+        try:
+            # Открываем диалоговое окно для выбора пути сохранения
+            file_dialog = QFileDialog(self.canvas)
+            file_dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
+            file_dialog.setNameFilters(["PNG Image (*.png)", "JPEG Image (*.jpg *.jpeg)"])
+            file_dialog.setDefaultSuffix("png")
+            file_dialog.setWindowTitle("Сохранить кадр")
+
+            if file_dialog.exec():
+                file_path = file_dialog.selectedFiles()[0]
+                self.logger.debug(f"Сохранение изображения в {file_path}")
+                pygame.image.save(self.screen, file_path)
+                self.logger.info(f"Изображение успешно сохранено в {file_path}")
+            else:
+                self.logger.debug("Сохранение изображения отменено")
+        except Exception as e:
+            self.logger.error(f"Ошибка при сохранении изображения: {e}")
 
     def set_points_check(self, flag):
         self.logger.debug(f"Установка флага отображения точек {flag}")
