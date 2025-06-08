@@ -14,9 +14,9 @@ class AnimationManager:
         self.duration = self.config.get_int("ImageParams", "duration_default")
         self.points_amount = self.config.get_int("GenerationParams", "points_amount_default")
         self.animation_speed = self.config.get_int("AnimationParams", "animation_speed_default")
-        self.transition_speed = self.config.get_int("AnimationParams", "transition_speed_default")
         self.min_points_speed = self.config.get_int("AnimationParams", "min_points_speed_default")
         self.max_points_speed = self.config.get_int("AnimationParams", "max_points_speed_default")
+        self.holes_check = self.config.get_bool("GenerationParams", "holes_check")
 
         self.empty_areas = self.config.get_empty_areas()  # Получаем пустые области из конфига
         # Инициализация параметров движения для вершин пустых областей
@@ -30,7 +30,7 @@ class AnimationManager:
         for area in self.empty_areas:
             area_params = []
             for vertex in area:
-                # Случайный радиус движения (в пределах 10-50 пикселей)
+                # Случайный радиус движения (в пределах 10-30 пикселей)
                 radius = np.random.uniform(10, 30)
                 # Случайная угловая скорость (в радианах за кадр, от 0.01 до 0.05)
                 angular_speed = np.random.uniform(0.01, 0.05)
@@ -61,17 +61,18 @@ class AnimationManager:
         # Объединяем все точки (угловые, боковые, случайные)
         points = np.concatenate([corner_points, side_points, random_points]).astype(np.float64)
 
-        # Добавляем вершины пустых областей
+        # Добавляем вершины пустых областей, если включены пустые области
         hole_points = []
-        for area_params in self.hole_vertex_params:
-            for param in area_params:
-                # Начальная позиция вершины с учетом текущего угла
-                center = param['center']
-                radius = param['radius']
-                angle = param['current_angle']
-                x = center[0] + radius * np.cos(angle)
-                y = center[1] + radius * np.sin(angle)
-                hole_points.append([x, y])
+        if self.holes_check:
+            for area_params in self.hole_vertex_params:
+                for param in area_params:
+                    # Начальная позиция вершины с учетом текущего угла
+                    center = param['center']
+                    radius = param['radius']
+                    angle = param['current_angle']
+                    x = center[0] + radius * np.cos(angle)
+                    y = center[1] + radius * np.sin(angle)
+                    hole_points.append([x, y])
         if hole_points:
             points = np.vstack([points, hole_points])
 
@@ -79,17 +80,23 @@ class AnimationManager:
         velocities = np.zeros((len(points), 2), dtype=np.float64)
 
         # Скорости для случайных точек (свободное движение)
-        hole_vertices_count = sum(len(area) for area in self.empty_areas)
+        hole_vertices_count = sum(len(area) for area in self.empty_areas) if self.holes_check else 0
         for i in range(12, len(points) - hole_vertices_count):  # Начиная с индекса 12 до вершин пустых областей
             speed = np.random.uniform(self.min_points_speed, self.max_points_speed)
             angle = np.random.uniform(0, 2 * np.pi)
             velocities[i] = np.array([speed * np.cos(angle), speed * np.sin(angle)])
 
         # Скорости для точек на сторонах (движение только вдоль одной оси)
-        for i in [4, 5, 6, 7]:
+        for i in [4, 5]:  # Верхняя сторона
             velocities[i][0] = np.random.uniform(self.min_points_speed, self.max_points_speed) * np.random.choice([-1, 1])
             velocities[i][1] = 0  # Нет движения по Y
-        for i in [8, 9, 10, 11]:
+        for i in [6, 7]:  # Нижنوع
+            velocities[i][0] = np.random.uniform(self.min_points_speed, self.max_points_speed) * np.random.choice([-1, 1])
+            velocities[i][1] = 0  # Нет движения по Y
+        for i in [8, 9]:  # Левая сторона
+            velocities[i][0] = 0  # Нет движения по X
+            velocities[i][1] = np.random.uniform(self.min_points_speed, self.max_points_speed) * np.random.choice([-1, 1])
+        for i in [10, 11]:  # Правая сторона
             velocities[i][0] = 0  # Нет движения по X
             velocities[i][1] = np.random.uniform(self.min_points_speed, self.max_points_speed) * np.random.choice([-1, 1])
 
@@ -135,18 +142,20 @@ class AnimationManager:
         return np.array(side_points)
 
     def _generate_random_points(self):
-        """Генерация случайных точек, избегая пустых областей."""
+        """Генерация случайных точек, избегая пустых областей, если включены."""
         random_points = []
         for _ in range(self.points_amount):
             while True:
                 point = [random.randint(0, self.frame_width), random.randint(0, self.frame_height)]
-                if not self._is_point_in_holes(point):
+                if not self.holes_check or not self._is_point_in_holes(point):
                     random_points.append(point)
                     break
         return np.array(random_points)
 
     def _is_point_in_holes(self, point):
         """Проверка, находится ли точка внутри пустых областей."""
+        if not self.holes_check:
+            return False
         for area_idx, area in enumerate(self.empty_areas):
             # Если frame существует (анимация), используем текущие позиции вершин
             if hasattr(self, 'frame') and 'points' in self.frame:
@@ -194,13 +203,13 @@ class AnimationManager:
             ])
             holes = []
             segments = boundary_segments
-            vertex_offset = len(points) - sum(len(area) for area in self.empty_areas)
-            if self.empty_areas:
+            vertex_offset = len(points) - sum(len(area) for area in self.empty_areas) if self.holes_check else len(points)
+            if self.holes_check and self.empty_areas:
                 for area_idx, area in enumerate(self.empty_areas):
                     n_points = len(area)
                     for i in range(n_points):
                         segments.append([vertex_offset + i, vertex_offset + (i + 1) % n_points])
-                    centroid = np.mean([self.frame["points"][vertex_offset + i] for i in range(n_points)], axis=0)
+                    centroid = np.mean([self.frame["points"][vertex_offset + i] for i in range(n_points)] if hasattr(self, 'frame') else area, axis=0)
                     holes.append(centroid)
                     vertex_offset += n_points
                 tri_input['holes'] = np.array(holes)
@@ -229,7 +238,7 @@ class AnimationManager:
         max_additional = max(0, self.points_amount + 12 - len(points))
         for _ in range(min(5, max_additional)):
             point = [random.randint(0, self.frame_width), random.randint(0, self.frame_height)]
-            if not self._is_point_in_holes(point):
+            if not self.holes_check or not self._is_point_in_holes(point):
                 additional_points.append(point)
                 speed = np.random.uniform(self.min_points_speed, self.max_points_speed)
                 angle = np.random.uniform(0, 2 * np.pi)
@@ -242,7 +251,8 @@ class AnimationManager:
     def update_frame(self):
         self.logger.debug("Обновление кадра для анимации")
         self._update_points()
-        self._update_hole_vertices()
+        if self.holes_check:
+            self._update_hole_vertices()
         self._update_triangles()
 
     def _update_hole_vertices(self):
@@ -263,45 +273,56 @@ class AnimationManager:
     def _update_points(self):
         """Обновление положения точек с отталкиванием от пустых областей."""
         proposed_points = self.frame["points"].copy().astype(np.float64)
-        hole_vertices_count = sum(len(area) for area in self.empty_areas)
-        proposed_points[4:-hole_vertices_count] += self.frame["velocities"][4:-hole_vertices_count] * self.animation_speed
+        hole_vertices_count = sum(len(area) for area in self.empty_areas) if self.holes_check else 0
 
+        # Обновление точек на сторонах (4-11) с ограничением по одной оси
+        for i in [4, 5]:  # Верхняя сторона
+            proposed_points[i][0] += self.frame["velocities"][i][0] * self.animation_speed
+            proposed_points[i][1] = self.frame_height  # Фиксируем Y
+        for i in [6, 7]:  # Нижняя сторона
+            proposed_points[i][0] += self.frame["velocities"][i][0] * self.animation_speed
+            proposed_points[i][1] = 0  # Фиксируем Y
+        for i in [8, 9]:  # Левая сторона
+            proposed_points[i][0] = 0  # Фиксируем X
+            proposed_points[i][1] += self.frame["velocities"][i][1] * self.animation_speed
+        for i in [10, 11]:  # Правая сторона
+            proposed_points[i][0] = self.frame_width  # Фиксируем X
+            proposed_points[i][1] += self.frame["velocities"][i][1] * self.animation_speed
+
+        # Обновление случайных точек
+        for i in range(12, len(proposed_points) - hole_vertices_count):
+            proposed_points[i] += self.frame["velocities"][i] * self.animation_speed
+
+            # Проверка столкновений с пустыми областями, если включены
+            if self.holes_check:
+                for area_idx, area in enumerate(self.empty_areas):
+                    current_area = []
+                    vertex_offset = len(self.frame["points"]) - sum(len(a) for a in self.empty_areas) + sum(
+                        len(a) for a in self.empty_areas[:area_idx])
+                    for j in range(len(area)):
+                        current_area.append(self.frame["points"][vertex_offset + j])
+                    if self._point_in_polygon(proposed_points[i], np.array(current_area)):
+                        closest_point = self._closest_point_on_polygon(self.frame["points"][i], np.array(current_area))
+                        normal = self._compute_normal(self.frame["points"][i], closest_point)
+                        self.frame["velocities"][i] = self._reflect_velocity(self.frame["velocities"][i], normal)
+                        proposed_points[i] = self.frame["points"][i] + self.frame["velocities"][i] * self.animation_speed
+
+        # Проверка границ холста
         for i in range(4, len(proposed_points) - hole_vertices_count):
-            old_point = self.frame["points"][i]
-            new_point = proposed_points[i]
-            velocity = self.frame["velocities"][i]
+            if proposed_points[i][0] < 0:
+                proposed_points[i][0] = -proposed_points[i][0]
+                self.frame["velocities"][i][0] = -self.frame["velocities"][i][0]
+            if proposed_points[i][0] > self.frame_width:
+                proposed_points[i][0] = 2 * self.frame_width - proposed_points[i][0]
+                self.frame["velocities"][i][0] = -self.frame["velocities"][i][0]
+            if proposed_points[i][1] < 0:
+                proposed_points[i][1] = -proposed_points[i][1]
+                self.frame["velocities"][i][1] = -self.frame["velocities"][i][1]
+            if proposed_points[i][1] > self.frame_height:
+                proposed_points[i][1] = 2 * self.frame_height - proposed_points[i][1]
+                self.frame["velocities"][i][1] = -self.frame["velocities"][i][1]
 
-            for area_idx, area in enumerate(self.empty_areas):
-                current_area = []
-                vertex_offset = len(self.frame["points"]) - sum(len(a) for a in self.empty_areas) + sum(len(a) for a in self.empty_areas[:area_idx])
-                for j in range(len(area)):
-                    current_area.append(self.frame["points"][vertex_offset + j])
-                if self._point_in_polygon(new_point, np.array(current_area)):
-                    closest_point = self._closest_point_on_polygon(old_point, np.array(current_area))
-                    normal = self._compute_normal(old_point, closest_point)
-                    self.frame["velocities"][i] = self._reflect_velocity(velocity, normal)
-                    proposed_points[i] = old_point + self.frame["velocities"][i] * self.animation_speed
-
-        self.frame["points"][4:-hole_vertices_count] = proposed_points[4:-hole_vertices_count].astype(np.float64)
-
-        mask_x_low = self.frame["points"][4:-hole_vertices_count, 0] < 0
-        mask_x_high = self.frame["points"][4:-hole_vertices_count, 0] > self.frame_width
-        self.frame["points"][4:-hole_vertices_count][mask_x_low, 0] = -self.frame["points"][4:-hole_vertices_count][mask_x_low, 0]
-        self.frame["velocities"][4:-hole_vertices_count][mask_x_low, 0] = -self.frame["velocities"][4:-hole_vertices_count][mask_x_low, 0]
-        self.frame["points"][4:-hole_vertices_count][mask_x_high, 0] = 2 * self.frame_width - self.frame["points"][4:-hole_vertices_count][mask_x_high, 0]
-        self.frame["velocities"][4:-hole_vertices_count][mask_x_high, 0] = -self.frame["velocities"][4:-hole_vertices_count][mask_x_high, 0]
-
-        mask_y_low = self.frame["points"][4:-hole_vertices_count, 1] < 0
-        mask_y_high = self.frame["points"][4:-hole_vertices_count, 1] > self.frame_height
-        self.frame["points"][4:-hole_vertices_count][mask_y_low, 1] = -self.frame["points"][4:-hole_vertices_count][mask_y_low, 1]
-        self.frame["velocities"][4:-hole_vertices_count][mask_y_low, 1] = -self.frame["velocities"][4:-hole_vertices_count][mask_y_low, 1]
-        self.frame["points"][4:-hole_vertices_count][mask_y_high, 1] = 2 * self.frame_height - self.frame["points"][4:-hole_vertices_count][mask_y_high, 1]
-        self.frame["velocities"][4:-hole_vertices_count][mask_y_high, 1] = -self.frame["velocities"][4:-hole_vertices_count][mask_y_high, 1]
-
-        self.frame["points"][4:6, 1] = self.frame_height  # Верхняя сторона
-        self.frame["points"][6:8, 1] = 0  # Нижняя сторона
-        self.frame["points"][8:10, 0] = 0  # Левая сторона
-        self.frame["points"][10:12, 0] = self.frame_width  # Правая сторона
+        self.frame["points"] = proposed_points
 
     def _closest_point_on_polygon(self, point, polygon):
         min_dist = float('inf')
@@ -431,17 +452,10 @@ class AnimationManager:
         except (ValueError, TypeError) as e:
             self.logger.error(f"Некорректное значение скорости анимации: {value}, ошибка: {e}")
 
-    def set_transition_speed(self, value):
-        self.logger.debug(f"Установка скорости переходов: {value}")
-        try:
-            value = int(value)
-            min_value = self.config.get_int("AnimationParams", "transition_speed_min")
-            max_value = self.config.get_int("AnimationParams", "transition_speed_max")
-            if not (min_value <= value <= max_value):
-                raise ValueError(f"Скорость переходов должна быть в диапазоне [{min_value}, {max_value}]")
-            self.transition_speed = value
-        except (ValueError, TypeError) as e:
-            self.logger.error(f"Некорректное значение скорости переходов: {value}, ошибка: {e}")
+    def set_holes_check(self, flag):
+        self.logger.debug(f"Установка флага пустых областей: {flag}")
+        self.holes_check = flag
+        self.init_frame()
 
     def set_min_speed(self, value):
         self.logger.debug(f"Установка минимальной скорости: {value}")

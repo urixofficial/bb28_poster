@@ -57,7 +57,7 @@ class MainApplication:
             self.ui.bg_saturation_slider.valueChanged.connect(self.render_manager.set_bg_saturation)
             self.ui.bg_brightness_slider.valueChanged.connect(self.render_manager.set_bg_brightness)
             self.ui.animation_speed_slider.valueChanged.connect(self.animation_manager.set_animation_speed)
-            self.ui.transition_speed_slider.valueChanged.connect(self.animation_manager.set_transition_speed)
+            self.ui.holes_check.toggled.connect(self.animation_manager.set_holes_check)
 
             # Подключение кнопок
             self.ui.generate_frame_btn.clicked.connect(self.generate_frame)
