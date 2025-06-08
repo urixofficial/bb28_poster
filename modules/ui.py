@@ -124,6 +124,9 @@ class MainUI(QWidget):
         self.fill_variation_value = QLabel(str(self.config.get_int("GenerationParams", "fill_variation_default")))
         self.fill_variation_slider.valueChanged.connect(lambda: self.fill_variation_value.setText(str(self.fill_variation_slider.value())))
 
+        self.holes_check = QCheckBox("Пустые области")
+        self.holes_check.setChecked(self.config.get_bool("GenerationParams", "holes_check"))
+
         gen_params_layout.addWidget(points_amount_label, 0, 0)
         gen_params_layout.addWidget(self.points_amount_slider, 0, 1, 1, 2)
         gen_params_layout.addWidget(self.points_amount_value, 0, 3)
@@ -139,6 +142,7 @@ class MainUI(QWidget):
         gen_params_layout.addWidget(fill_label, 3, 1)
         gen_params_layout.addWidget(self.fill_variation_slider, 3, 2)
         gen_params_layout.addWidget(self.fill_variation_value, 3, 3)
+        gen_params_layout.addWidget(self.holes_check, 4, 0)
 
         gen_params.setLayout(gen_params_layout)
         control_layout.addWidget(gen_params)
@@ -245,17 +249,6 @@ class MainUI(QWidget):
         animation_params = QGroupBox("Параметры анимации")
         animation_params_layout = QGridLayout()
 
-        transition_speed_label = QLabel("Скорость переходов:")
-        self.transition_speed_slider = QSlider(Qt.Orientation.Horizontal)
-        self.transition_speed_slider.setRange(
-            self.config.get_int("AnimationParams", "transition_speed_min"),
-            self.config.get_int("AnimationParams", "transition_speed_max")
-        )
-        self.transition_speed_slider.setValue(self.config.get_int("AnimationParams", "transition_speed_default"))
-        self.transition_speed_value = QLabel(str(self.config.get_int("AnimationParams", "transition_speed_default")))
-        self.transition_speed_slider.valueChanged.connect(
-            lambda: self.transition_speed_value.setText(str(self.transition_speed_slider.value())))
-
         animation_speed_label = QLabel("Скорость анимации:")
         self.animation_speed_slider = QSlider(Qt.Orientation.Horizontal)
         self.animation_speed_slider.setRange(
@@ -267,12 +260,9 @@ class MainUI(QWidget):
         self.animation_speed_slider.valueChanged.connect(
             lambda: self.animation_speed_value.setText(str(self.animation_speed_slider.value())))
 
-        animation_params_layout.addWidget(transition_speed_label, 0, 0)
-        animation_params_layout.addWidget(self.transition_speed_slider, 0, 1)
-        animation_params_layout.addWidget(self.transition_speed_value, 0, 2)
-        animation_params_layout.addWidget(animation_speed_label, 1, 0)
-        animation_params_layout.addWidget(self.animation_speed_slider, 1, 1)
-        animation_params_layout.addWidget(self.animation_speed_value, 1, 2)
+        animation_params_layout.addWidget(animation_speed_label, 0, 0)
+        animation_params_layout.addWidget(self.animation_speed_slider, 0, 1)
+        animation_params_layout.addWidget(self.animation_speed_value, 0, 2)
 
         animation_params.setLayout(animation_params_layout)
         control_layout.addWidget(animation_params)
